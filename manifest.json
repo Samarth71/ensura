@@ -1,0 +1,12 @@
+{
+  "name": "Ensura — Live Indian Train Tracker",
+  "short_name": "Ensura",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10",
+  "icons": [
+    { "src": "favicon.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "favicon-32.png", "sizes": "32x32", "type": "image/png" }
+  ]
+}

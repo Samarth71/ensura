@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ensura — Live Indian Train Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="512x512" href="favicon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="favicon.png">
+<meta name="theme-color" content="#0b0d10">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="signal"></span>
+    Ensura
+  </div>
+  <div class="quota" id="quotaBadge" title="Free-tier API calls are limited — used sparingly">
+    <span id="quotaCount">0</span> calls used this session
+  </div>
+</header>
+
+<div class="net-banner" id="netBanner"></div>
+
+<main class="wrap">
+  <div class="hero-track" aria-hidden="true">
+    <div class="track-line"></div>
+    <div class="hero-train">🚆</div>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="live">Live Status</button>
+    <button class="tab" data-tab="pnr">PNR Status</button>
+    <button class="tab" data-tab="between">Trains Between Stations</button>
+    <span class="tab-indicator" id="tabIndicator"></span>
+  </nav>
+
+  <!-- LIVE STATUS -->
+  <section class="panel active" id="panel-live">
+    <div class="card form-card">
+      <label>Train Number</label>
+      <div class="input-row">
+        <input type="text" id="liveTrainNo" inputmode="numeric" maxlength="5" placeholder="e.g. 12951">
+        <button class="star-btn" id="liveFavBtn" title="Save as favorite">☆</button>
+      </div>
+      <button class="btn" id="liveSubmit">Track Train</button>
+      <label class="toggle-row">
+        <input type="checkbox" id="autoRefreshToggle">
+        <span>Auto-refresh every 3 min while I'm on this tab, and alert me if delay changes. <b>Uses 1 API call per refresh</b> — turn on only when actually travelling.</span>
+      </label>
+      <p class="hint">Uses 1 API call. Same train + day is cached for this session — refresh won't cost another call.</p>
+      <div class="chip-row" id="liveFavChips"></div>
+      <div class="chip-row" id="liveRecentChips"></div>
+    </div>
+    <div class="result" id="liveResult"></div>
+  </section>
+
+  <!-- PNR STATUS -->
+  <section class="panel" id="panel-pnr">
+    <div class="card form-card">
+      <label>PNR Number</label>
+      <input type="text" id="pnrInput" inputmode="numeric" maxlength="10" placeholder="10-digit PNR">
+      <button class="btn" id="pnrSubmit">Check PNR</button>
+      <p class="hint">Uses 1 API call. Cached per PNR for this session.</p>
+      <div class="chip-row" id="pnrRecentChips"></div>
+    </div>
+    <div class="result" id="pnrResult"></div>
+  </section>
+
+  <!-- TRAINS BETWEEN STATIONS -->
+  <section class="panel" id="panel-between">
+    <div class="card form-card">
+      <label>From Station</label>
+      <div class="autocomplete">
+        <input type="text" id="fromStation" placeholder="City or station code" autocomplete="off">
+        <div class="suggestions" id="fromSuggestions"></div>
+      </div>
+      <label>To Station</label>
+      <div class="autocomplete">
+        <input type="text" id="toStation" placeholder="City or station code" autocomplete="off">
+        <div class="suggestions" id="toSuggestions"></div>
+      </div>
+      <label>Date of Journey</label>
+      <input type="date" id="journeyDate">
+      <button class="btn" id="betweenSubmit">Find Trains</button>
+      <p class="hint">Uses 1 API call. Station search below is local — free, unlimited.</p>
+      <div class="chip-row" id="betweenRecentChips"></div>
+    </div>
+    <div class="result" id="betweenResult"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  Data via IRCTC unofficial API (RapidAPI). Not affiliated with Indian Railways. Free-tier quota is limited — results are cached per session to conserve calls.
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

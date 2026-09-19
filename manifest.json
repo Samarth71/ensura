@@ -1,12 +1,17 @@
 {
+  "id": "/",
   "name": "Ensura — Live Indian Train Tracker",
   "short_name": "Ensura",
+  "description": "Live train status, PNR status, and train search between stations for Indian Railways.",
   "start_url": ".",
+  "scope": ".",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#f3f6fd",
   "theme_color": "#2f6ef2",
   "icons": [
-    { "src": "favicon.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "favicon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "favicon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "favicon-32.png", "sizes": "32x32", "type": "image/png" }
   ]
 }

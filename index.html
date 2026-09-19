@@ -131,7 +131,35 @@
       <p class="hint">Uses 1 API call. Station search below is local — free, unlimited.</p>
       <div class="chip-row" id="betweenRecentChips"></div>
     </div>
+    <div class="result-header" id="betweenResultHeader" hidden>
+      <button class="detail-back-inline" id="betweenBackBtn" aria-label="Back to search">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div>
+        <div class="result-header-title" id="betweenRouteLabel">Search Results</div>
+        <div class="result-header-sub" id="betweenResultCount"></div>
+      </div>
+    </div>
     <div class="result" id="betweenResult"></div>
+    <div class="filter-sheet" id="filterSheet" hidden>
+      <div class="filter-sheet-head">
+        <span>Filter by train type</span>
+        <button id="filterSheetClose" aria-label="Close">✕</button>
+      </div>
+      <div class="filter-options" id="filterOptions"></div>
+      <button class="btn" id="filterApply" style="margin-top:14px;">Apply</button>
+    </div>
+    <div class="floating-pill" id="floatingPill" hidden>
+      <button class="pill-seg" id="pillFilter">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16l-6 8v5l-4 2v-7L4 5z" stroke-linejoin="round"/></svg>
+        Filter
+      </button>
+      <span class="pill-divider"></span>
+      <button class="pill-seg" id="pillSort">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h11M4 12h7M4 17h4M16 17l3 3 3-3M19 4v16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Sort
+      </button>
+    </div>
   </section>
 
   <div class="history-section" id="historySection">

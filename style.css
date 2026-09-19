@@ -280,6 +280,27 @@ html[data-theme="dark"] .ripple{background:rgba(255,255,255,.18);}
 
 .countdown{font-family:var(--mono);font-size:12.5px;color:var(--accent);margin-top:2px;}
 
+/* ---------------- crowdsourced GPS map ---------------- */
+.crowd-map-wrap{margin:14px 0;}
+.crowd-map-loading{font-size:12px;color:var(--dim-2);font-family:var(--mono);padding:8px 2px;}
+.crowd-map-badge{
+  font-family:var(--mono);font-size:11.5px;color:var(--accent);
+  display:flex;align-items:center;gap:6px;margin-bottom:8px;
+}
+.crowd-map-el{
+  width:100%;height:200px;border-radius:14px;overflow:hidden;
+  border:1px solid var(--line);
+}
+.crowd-map-empty{
+  font-size:12px;color:var(--dim);background:var(--panel-raised);
+  border-radius:12px;padding:14px 16px;line-height:1.6;
+}
+.crowd-empty-cta{
+  display:flex;align-items:center;gap:8px;margin-top:10px;
+  font-size:12.5px;color:var(--accent);font-weight:500;cursor:pointer;
+}
+.crowd-empty-cta input{accent-color:var(--accent);cursor:pointer;width:15px;height:15px;}
+
 /* ---------------- journey summary ---------------- */
 .journey-summary{
   margin-top:14px;background:var(--panel-raised);border-radius:14px;padding:16px 18px;border:1px solid var(--line);

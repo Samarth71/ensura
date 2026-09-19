@@ -25,21 +25,50 @@
   --radius: 18px;
 }
 
+html[data-theme="dark"]{
+  --bg: #0e1220;
+  --panel: #161b2e;
+  --panel-raised: #1e2440;
+  --line: #2a3153;
+  --text: #eef1fb;
+  --dim: #8b93b8;
+  --dim-2: #5b6489;
+  --accent-soft: #2f6ef233;
+}
+
 *{box-sizing:border-box;}
+html{transition:background-color .3s ease;}
 html,body{margin:0;padding:0;}
 body{
   background:var(--bg);
   color:var(--text);
   font-family:var(--font);
   -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+  transition:background-color .3s ease, color .3s ease;
 }
 ::selection{background:var(--accent);color:#fff;}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
 
+/* ---------------- install prompt bar ---------------- */
+.install-bar{
+  display:flex;align-items:center;gap:10px;
+  background:var(--text);color:#fff;font-size:12.5px;
+  padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));
+}
+.install-bar span{flex:1;}
+.install-bar button{
+  border:none;border-radius:8px;font-family:var(--font);font-weight:600;
+  font-size:12px;padding:7px 12px;cursor:pointer;
+}
+#installBtn{background:var(--accent);color:#fff;}
+#installDismiss{background:transparent;color:rgba(255,255,255,.6);font-size:14px;padding:4px 6px;}
+
 /* ---------------- curved gradient header ---------------- */
 .app-header{
   background:linear-gradient(135deg,var(--accent),var(--accent-2));
-  padding:30px 22px 50px;border-radius:0 0 30px 30px;color:#fff;
+  padding:30px 22px 50px;padding-top:calc(30px + env(safe-area-inset-top));
+  border-radius:0 0 30px 30px;color:#fff;
   position:relative;overflow:hidden;
 }
 .app-header::after{
@@ -56,6 +85,18 @@ body{
 }
 .greet-hi{font-size:12.5px;opacity:.85;display:block;margin-bottom:4px;}
 .greeting h1{font-size:25px;font-weight:700;margin:0;letter-spacing:-.01em;}
+
+.header-actions{display:flex;align-items:center;gap:8px;}
+.theme-toggle{
+  width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.3);
+  background:rgba(255,255,255,.18);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1), background .2s;
+}
+.theme-toggle:hover{background:rgba(255,255,255,.3);}
+.theme-toggle:active{transform:scale(.85) rotate(-20deg);}
+.theme-toggle svg{transition:transform .4s cubic-bezier(.34,1.56,.64,1);}
+html[data-theme="dark"] .theme-toggle svg{transform:rotate(180deg);}
 
 .quota{
   font-family:var(--mono);font-size:11.5px;color:#fff;
@@ -86,8 +127,15 @@ body{
   cursor:pointer;font-family:var(--font);font-size:11.5px;color:var(--dim);font-weight:500;
   box-shadow:0 14px 32px -20px rgba(30,45,90,.35);
   transition:transform .15s ease, box-shadow .15s ease, color .15s ease, border-color .15s ease;
+  position:relative;overflow:hidden;
+  animation:tileIn .4s cubic-bezier(.16,1,.3,1) backwards;
 }
+.quick-tile:nth-child(1){animation-delay:.05s;}
+.quick-tile:nth-child(2){animation-delay:.12s;}
+.quick-tile:nth-child(3){animation-delay:.19s;}
+@keyframes tileIn{from{opacity:0;transform:translateY(14px) scale(.94);}to{opacity:1;transform:translateY(0) scale(1);}}
 .quick-tile:hover{transform:translateY(-2px);}
+.quick-tile:active{transform:translateY(0) scale(.96);}
 .quick-tile.active{
   color:var(--accent);border-color:var(--accent);
   box-shadow:0 16px 34px -16px rgba(47,110,242,.4);
@@ -95,8 +143,21 @@ body{
 .quick-icon{
   width:36px;height:36px;border-radius:50%;background:var(--accent-soft);
   display:flex;align-items:center;justify-content:center;color:var(--accent);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
 }
-.quick-tile.active .quick-icon{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;}
+.quick-tile.active .quick-icon{
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;
+  transform:scale(1.08);
+}
+.quick-tile:active .quick-icon{transform:scale(.9);}
+
+/* ripple effect shared by tiles + primary buttons */
+.ripple{
+  position:absolute;border-radius:50%;background:rgba(47,110,242,.25);
+  transform:scale(0);animation:rippleAnim .55s ease-out;pointer-events:none;
+}
+html[data-theme="dark"] .ripple{background:rgba(255,255,255,.18);}
+@keyframes rippleAnim{to{transform:scale(1);opacity:0;}}
 
 /* ---------------- tabs (kept for logic reuse; visually hidden) ---------------- */
 .tabs{position:relative;}
@@ -145,7 +206,9 @@ body{
   font-weight:600;font-size:14.5px;cursor:pointer;font-family:var(--font);
   transition:transform .15s, box-shadow .2s;
   box-shadow:0 12px 26px -8px rgba(47,110,242,.45);
+  position:relative;overflow:hidden;
 }
+.btn .ripple{background:rgba(255,255,255,.35);}
 .btn:hover{box-shadow:0 14px 30px -6px rgba(23,193,200,.5);}
 .btn:active{transform:scale(.98);}
 .btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;}
@@ -329,14 +392,23 @@ details pre{
   display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);
   border-radius:14px;padding:12px 14px;cursor:pointer;transition:border-color .15s, transform .15s;
   box-shadow:0 8px 20px -18px rgba(30,45,90,.3);
+  animation:fadeIn .3s ease backwards;
 }
 .history-item:hover{border-color:var(--accent);transform:translateX(2px);}
+.history-item.removing{animation:slideOut .25s ease forwards;pointer-events:none;}
+@keyframes slideOut{to{opacity:0;transform:translateX(40px) scale(.96);}}
 .history-item .h-icon{
   width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
 .history-item .h-text{font-family:var(--mono);font-size:12.5px;color:var(--text);}
-.history-item .h-type{font-size:9.5px;color:var(--dim-2);margin-left:auto;text-transform:uppercase;letter-spacing:.04em;}
+.history-item .h-type{font-size:9.5px;color:var(--dim-2);text-transform:uppercase;letter-spacing:.04em;margin-left:auto;}
+.history-item .h-del{
+  background:none;border:none;color:var(--dim-2);cursor:pointer;padding:6px;
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  transition:color .15s, background .15s;flex-shrink:0;
+}
+.history-item .h-del:hover{color:var(--red);background:rgba(239,74,107,.1);}
 .history-empty{font-size:12.5px;color:var(--dim-2);padding:10px 2px;}
 
 /* ---------------- toast ---------------- */

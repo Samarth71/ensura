@@ -12,30 +12,41 @@
 <link rel="icon" type="image/png" sizes="512x512" href="favicon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="favicon.png">
-<meta name="theme-color" content="#0b0d10">
+<meta name="theme-color" content="#2f6ef2">
 </head>
 <body>
 
-<header class="topbar">
-  <div class="brand">
-    <span class="signal"></span>
-    Ensura
-  </div>
-  <div class="quota" id="quotaBadge" title="Free-tier API calls are limited — used sparingly">
-    <span id="quotaCount">0</span> calls used this session
+<header class="app-header">
+  <div class="app-header-top">
+    <div class="greeting">
+      <span class="greet-hi">Hello, traveller</span>
+      <h1>Track your train</h1>
+    </div>
+    <div class="quota" id="quotaBadge" title="Free-tier API calls are limited — used sparingly">
+      <span id="quotaCount">0</span> used
+    </div>
   </div>
 </header>
 
 <div class="net-banner" id="netBanner"></div>
 
 <main class="wrap">
-  <div class="hero">
-    <div class="hero-glow"></div>
-    <h1>Track any train,<br>anywhere in India.</h1>
-    <p>Live running status, PNR checks, and route search — fast, clean, and built for actual travel days.</p>
+  <div class="quick-grid" id="quickGrid">
+    <button class="quick-tile active" data-tab="live">
+      <span class="quick-icon" id="qiLive"></span>
+      <span>Live Status</span>
+    </button>
+    <button class="quick-tile" data-tab="pnr">
+      <span class="quick-icon" id="qiPnr"></span>
+      <span>PNR Status</span>
+    </button>
+    <button class="quick-tile" data-tab="between">
+      <span class="quick-icon" id="qiBetween"></span>
+      <span>Between Stations</span>
+    </button>
   </div>
 
-  <nav class="tabs" id="tabs">
+  <nav class="tabs" id="tabs" hidden>
     <span class="tab-indicator" id="tabIndicator"></span>
     <button class="tab active" data-tab="live">Live status</button>
     <button class="tab" data-tab="pnr">PNR status</button>
@@ -102,6 +113,11 @@
     </div>
     <div class="result" id="betweenResult"></div>
   </section>
+
+  <div class="history-section" id="historySection">
+    <h2>History</h2>
+    <div class="history-list" id="historyList"></div>
+  </div>
 </main>
 
 <footer class="foot">

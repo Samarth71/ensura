@@ -337,6 +337,117 @@ const liveFavBtn = document.getElementById('liveFavBtn');
 const liveFavChips = document.getElementById('liveFavChips');
 const liveRecentChips = document.getElementById('liveRecentChips');
 
+/* ---------------- crowdsourced live GPS (Supabase) ---------------- */
+const SUPABASE_URL = 'https://fvzabpxkxmcmxtwthfot.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2emFicHhreG1jbXh0d3RoZm90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4MDU4MzUsImV4cCI6MjEwNTM4MTgzNX0._lI-ZgW_qHoZ3lHDaGticUHNif2wYbaLD8zn4aarSN8';
+
+async function reportPosition(trainNo, lat, lng){
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/train_positions`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ train_no: trainNo, lat, lng })
+    });
+  }catch(e){ /* silent — best effort, never blocks the UI */ }
+}
+
+async function fetchLatestPosition(trainNo){
+  try{
+    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const url = `${SUPABASE_URL}/rest/v1/train_positions?train_no=eq.${trainNo}&reported_at=gte.${since}&order=reported_at.desc&limit=1`;
+    const res = await fetch(url, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    if(!res.ok) return null;
+    const rows = await res.json();
+    return rows[0] || null;
+  }catch(e){ return null; }
+}
+
+let crowdMapInstance = null;
+async function loadCrowdMap(trainNo){
+  const wrap = document.getElementById('crowdMapWrap');
+  if(!wrap) return;
+  const row = await fetchLatestPosition(trainNo);
+  if(!document.getElementById('crowdMapWrap')) return; // panel changed while we were fetching
+
+  if(!row){
+    wrap.innerHTML = `<div class="crowd-map-empty">
+      No live rider reports for this train yet in the last 10 minutes.
+      <label class="crowd-empty-cta">
+        <input type="checkbox" id="gpsShareToggleInline">
+        Be the first — share your location
+      </label>
+    </div>`;
+    document.getElementById('gpsShareToggleInline')?.addEventListener('change', function(){
+      gpsShareToggle.checked = this.checked;
+      gpsShareToggle.dispatchEvent(new Event('change'));
+    });
+    return;
+  }
+
+  const ageSec = Math.max(0, Math.round((Date.now() - new Date(row.reported_at).getTime()) / 1000));
+  const ageText = ageSec < 60 ? `${ageSec}s ago` : `${Math.round(ageSec/60)}m ago`;
+
+  wrap.innerHTML = `
+    <div class="crowd-map-badge">${iconLabel(ICONS.pin, `Live rider position · updated ${ageText}`)}</div>
+    <div id="crowdMapEl" class="crowd-map-el"></div>`;
+
+  if(typeof L === 'undefined'){
+    document.getElementById('crowdMapEl').outerHTML = '<div class="crowd-map-empty">Map library failed to load.</div>';
+    return;
+  }
+  if(crowdMapInstance){ crowdMapInstance.remove(); crowdMapInstance = null; }
+  try{
+    crowdMapInstance = L.map('crowdMapEl', { zoomControl: false, attributionControl: true }).setView([row.lat, row.lng], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors', maxZoom: 17
+    }).addTo(crowdMapInstance);
+    L.circleMarker([row.lat, row.lng], {
+      radius: 9, color: '#2f6ef2', fillColor: '#2f6ef2', fillOpacity: 0.9, weight: 2
+    }).addTo(crowdMapInstance).bindPopup(`Reported ${ageText}`);
+    setTimeout(() => crowdMapInstance && crowdMapInstance.invalidateSize(), 150);
+  }catch(e){ /* panel not visible or map failed — non-critical, skip silently */ }
+}
+
+
+let gpsWatchId = null;
+let lastGpsSend = 0;
+const gpsShareToggle = document.getElementById('gpsShareToggle');
+gpsShareToggle?.addEventListener('change', () => {
+  const trainNo = liveInput.value.trim();
+  if(gpsShareToggle.checked){
+    if(!/^\d{4,5}$/.test(trainNo)){
+      showToast('Track a train first, then turn this on.');
+      gpsShareToggle.checked = false;
+      return;
+    }
+    if(!navigator.geolocation){
+      showToast("This browser can't share your location.");
+      gpsShareToggle.checked = false;
+      return;
+    }
+    showToast('Sharing your live location for this train. Thank you!');
+    gpsWatchId = navigator.geolocation.watchPosition(
+      pos => {
+        const now = Date.now();
+        if(now - lastGpsSend < 25000) return; // throttle to ~1 report / 25s
+        lastGpsSend = now;
+        reportPosition(trainNo, pos.coords.latitude, pos.coords.longitude);
+      },
+      err => { /* silent — permission denial etc. */ },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+    );
+  } else {
+    if(gpsWatchId !== null){ navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+  }
+});
+
 function refreshLiveChips(){
   renderChips(liveFavChips, loadList('rp_fav_trains'), v => { liveInput.value = v; syncFavBtn(); }, true);
   renderChips(liveRecentChips, loadList('rp_recent_trains').filter(v => !loadList('rp_fav_trains').includes(v)),
@@ -551,6 +662,9 @@ function renderLive(data, meta){
       </div>
       ${current ? `<div style="font-size:13px;color:var(--dim)">Currently near: ${escapeHtml(current)}</div>` : ''}
       <div class="${statusClass}">${escapeHtml(statusText)}</div>
+      <div class="crowd-map-wrap" id="crowdMapWrap">
+        <div class="crowd-map-loading">Checking for live rider reports…</div>
+      </div>
       ${journeyHtml}
       ${etaMinRaw !== null && !meta.offline ? `<div class="countdown" id="liveCountdown"></div>` : ''}
       ${progressHtml}
@@ -577,6 +691,8 @@ function renderLive(data, meta){
   document.getElementById('shareLiveBtn').addEventListener('click', () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
   });
+
+  loadCrowdMap(num);
 
   if(etaMinRaw !== null && !meta.offline){
     let secondsLeft = Math.max(0, Math.round(Number(etaMinRaw) * 60));

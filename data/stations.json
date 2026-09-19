@@ -94,5 +94,8 @@
   {"code":"KIR","name":"Katihar Junction","lat":25.5387,"lng":87.5754},
   {"code":"MFP","name":"Muzaffarpur Junction","lat":26.1225,"lng":85.3906},
   {"code":"CPR","name":"Chapra Junction","lat":25.7810,"lng":84.7473},
+  {"code":"G","name":"Gondia Junction","lat":21.4615,"lng":80.1922},
+  {"code":"TRO","name":"Tirora","lat":21.4141,"lng":79.9182},
+  {"code":"KWN","name":"Kachewani","lat":21.4298,"lng":79.9813},
   {"code":"SEE","name":"Siwan Junction","lat":26.2183,"lng":84.3547}
 ]

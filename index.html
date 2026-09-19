@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ensura">
+<meta name="format-detection" content="telephone=no">
 <title>Ensura — Live Indian Train Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,15 +20,24 @@
 <meta name="theme-color" content="#2f6ef2">
 </head>
 <body>
-
+<div id="installBar" class="install-bar" hidden>
+  <span>Install Ensura for quicker access</span>
+  <button id="installBtn">Install</button>
+  <button id="installDismiss" aria-label="Dismiss">✕</button>
+</div>
 <header class="app-header">
   <div class="app-header-top">
     <div class="greeting">
       <span class="greet-hi">Hello, traveller</span>
       <h1>Track your train</h1>
     </div>
-    <div class="quota" id="quotaBadge" title="Free-tier API calls are limited — used sparingly">
-      <span id="quotaCount">0</span> used
+    <div class="header-actions">
+      <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8.5 8.5 0 019.5 4 8.5 8.5 0 1020 14.5z" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="quota" id="quotaBadge" title="Free-tier API calls are limited — used sparingly">
+        <span id="quotaCount">0</span> used
+      </div>
     </div>
   </div>
 </header>

@@ -55,18 +55,30 @@ const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.panel');
 const indicator = document.getElementById('tabIndicator');
 function positionIndicator(el){
+  if(!el || el.offsetParent === null) return; // tabs row is visually hidden now
   indicator.style.left = el.offsetLeft + 'px';
   indicator.style.width = el.offsetWidth + 'px';
 }
-tabs.forEach(t => t.addEventListener('click', () => {
-  tabs.forEach(x => x.classList.remove('active'));
-  panels.forEach(x => x.classList.remove('active'));
-  t.classList.add('active');
-  document.getElementById('panel-' + t.dataset.tab).classList.add('active');
-  positionIndicator(t);
-}));
+function activateTab(tabKey){
+  tabs.forEach(x => x.classList.toggle('active', x.dataset.tab === tabKey));
+  panels.forEach(x => x.classList.toggle('active', x.id === 'panel-' + tabKey));
+  document.querySelectorAll('.quick-tile').forEach(x => x.classList.toggle('active', x.dataset.tab === tabKey));
+  positionIndicator(document.querySelector('.tab.active'));
+}
+tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
+document.querySelectorAll('.quick-tile').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
 window.addEventListener('load', () => positionIndicator(document.querySelector('.tab.active')));
 window.addEventListener('resize', () => positionIndicator(document.querySelector('.tab.active')));
+
+/* ---------------- quick-tile icons ---------------- */
+window.addEventListener('DOMContentLoaded', () => {
+  const qiLive = document.getElementById('qiLive');
+  const qiPnr = document.getElementById('qiPnr');
+  const qiBetween = document.getElementById('qiBetween');
+  if(qiLive) qiLive.innerHTML = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="4" width="14" height="12" rx="3"/><path d="M5 11h14M9 16l-2 4M15 16l2 4"/></svg>`;
+  if(qiPnr) qiPnr.innerHTML = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2a2 2 0 000-4V7z"/><path d="M9 5v14" stroke-dasharray="2 3"/></svg>`;
+  if(qiBetween) qiBetween.innerHTML = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M8 7l8 10M13 7h3v3"/></svg>`;
+});
 
 /* ---------------- localStorage: favorites & recents ---------------- */
 function loadList(key){
@@ -187,10 +199,60 @@ const ICONS = {
   pin: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s7-6.1 7-11.3A7 7 0 105 9.7C5 14.9 12 21 12 21z" stroke-linejoin="round"/><circle cx="12" cy="9.5" r="2.3"/></svg>`,
   train: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="4" width="14" height="12" rx="3"/><path d="M5 11h14M9 16l-2 4M15 16l2 4M9 7h6"/><circle cx="8.5" cy="14" r=".4" fill="currentColor"/><circle cx="15.5" cy="14" r=".4" fill="currentColor"/></svg>`,
   clipboard: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1" stroke-linecap="round"/><path d="M9 11h6M9 15h6" stroke-linecap="round"/></svg>`,
-  check: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.5l4.5 4.5L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+  check: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.5l4.5 4.5L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  whatsapp: `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.6-.8-1.9-.9-.3-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.2.2-.3.2-.5.1-.3-.1-1.2-.4-2.2-1.4-.8-.7-1.4-1.6-1.5-1.9-.2-.3 0-.5.1-.6l.4-.5c.1-.1.2-.3.2-.4.1-.2 0-.3 0-.4l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.9 2.3 1 2.4c.1.2 1.7 2.6 4.2 3.6.6.2 1 .4 1.4.5.6.2 1.1.1 1.5.1.5-.1 1.6-.6 1.8-1.3.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.3z"/><path d="M12 3a9 9 0 00-7.7 13.6L3 21l4.5-1.2A9 9 0 1012 3z" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>`
 };
 function iconLabel(icon, text){
   return `<span style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;">${icon}${text}</span>`;
+}
+
+/* ---------------- unified history (across all 3 features) ---------------- */
+function pushHistory(type, value, label){
+  let hist = loadList('rp_history');
+  hist = hist.filter(h => !(h.type === type && h.value === value));
+  hist.unshift({ type, value, label: label || value, ts: Date.now() });
+  if(hist.length > 10) hist = hist.slice(0, 10);
+  saveList('rp_history', hist);
+  renderHistory();
+}
+const HIST_ICONS = { live: ICONS.train, pnr: ICONS.clipboard, between: ICONS.pin };
+const HIST_LABELS = { live: 'Train', pnr: 'PNR', between: 'Route' };
+function renderHistory(){
+  const list = loadList('rp_history');
+  const el = document.getElementById('historyList');
+  if(!el) return;
+  if(!list.length){
+    el.innerHTML = '<div class="history-empty">Your recent searches will show up here.</div>';
+    return;
+  }
+  el.innerHTML = list.map((h, i) => `
+    <div class="history-item" data-i="${i}">
+      <span class="h-icon">${HIST_ICONS[h.type] || ''}</span>
+      <span class="h-text">${escapeHtml(h.label)}</span>
+      <span class="h-type">${HIST_LABELS[h.type] || ''}</span>
+    </div>`).join('');
+  el.querySelectorAll('.history-item').forEach(row => {
+    row.addEventListener('click', () => {
+      const h = list[Number(row.dataset.i)];
+      if(!h) return;
+      if(h.type === 'live'){
+        activateTab('live');
+        document.getElementById('liveTrainNo').value = h.value;
+        syncFavBtn();
+        runLiveStatus(h.value);
+      } else if(h.type === 'pnr'){
+        activateTab('pnr');
+        document.getElementById('pnrInput').value = h.value;
+        runPnrCheck(h.value);
+      } else if(h.type === 'between'){
+        activateTab('between');
+        const [f, t] = h.value.split('→');
+        document.getElementById('fromStation').value = f;
+        document.getElementById('toStation').value = t;
+        runBetweenSearch();
+      }
+    });
+  });
 }
 
 /* ================= LIVE STATUS ================= */
@@ -235,6 +297,7 @@ async function runLiveStatus(trainNo, silent){
   try{
     const result = await cachedFetch(key, `/api/live-status?trainNo=${trainNo}`);
     pushRecent('rp_recent_trains', trainNo);
+    pushHistory('live', trainNo, `Train #${trainNo}`);
     refreshLiveChips();
     renderLive(result.data, result);
     checkDelayChange(result.data, silent);
@@ -351,16 +414,50 @@ function renderLive(data, meta){
 
   let stopsHtml = '';
   if(Array.isArray(route) && route.length){
-    stopsHtml = '<div class="stops">' + route.map(s => {
+    // Figure out which stop the train is currently at/near, using the API's
+    // reported current-station name when we have one, otherwise falling
+    // back to comparing each stop's own distance to distance covered so far.
+    let currentIdx = -1;
+    if(current){
+      currentIdx = route.findIndex(s => {
+        const n = pick(s, ['station_name','stationName','name'], '');
+        return n && current && n.toLowerCase().includes(String(current).toLowerCase().split(' ')[0]);
+      });
+    }
+    if(currentIdx === -1 && distFromSource !== null){
+      route.forEach((s, i) => {
+        const sd = pick(s, ['distance','distanceFromOrigin','distance_from_source'], null);
+        if(sd !== null && Number(sd) <= Number(distFromSource)) currentIdx = i;
+      });
+    }
+
+    stopsHtml = '<div class="route-track">' + route.map((s, i) => {
       const sName = pick(s, ['station_name','stationName','name'], 'Station');
       const arr = pick(s, ['actual_arrival_time','scharrival','arrival','arrival_time'], '--');
       const dep = pick(s, ['actual_departure_time','schdeparture','departure','departure_time'], '--');
       const d = pick(s, ['delay','delayArrival'], null);
+      const sd = pick(s, ['distance','distanceFromOrigin','distance_from_source'], null);
       const dClass = (d === null || d === 0 || d === '0') ? 'ontime' : '';
-      return `<div class="stop-row">
-        <div class="stop-name">${escapeHtml(sName)}</div>
-        <div class="stop-time">${escapeHtml(arr)} → ${escapeHtml(dep)}</div>
-        <div class="stop-delay ${dClass}">${d !== null ? escapeHtml(d) + ' min' : ''}</div>
+
+      let state = 'upcoming';
+      if(currentIdx !== -1){
+        if(i < currentIdx) state = 'passed';
+        else if(i === currentIdx) state = 'current';
+      }
+
+      return `<div class="route-stop ${state}">
+        <div class="route-dot">${state === 'current' ? ICONS.train : ''}</div>
+        <div class="route-info">
+          <div class="route-top">
+            <span class="route-name">${escapeHtml(sName)}</span>
+            ${state === 'current' ? '<span class="route-live-badge">Live</span>' : ''}
+          </div>
+          <div class="route-meta">
+            <span>${escapeHtml(arr)} → ${escapeHtml(dep)}</span>
+            ${sd !== null ? `<span>· ${escapeHtml(sd)} km</span>` : ''}
+            ${d !== null ? `<span class="route-delay ${dClass}">${d !== null && Number(d) > 0 ? '+' + escapeHtml(d) + ' min' : 'on time'}</span>` : ''}
+          </div>
+        </div>
       </div>`;
     }).join('') + '</div>';
   }
@@ -386,6 +483,7 @@ function renderLive(data, meta){
       ${meta.fromCache && !meta.offline ? '<p class="hint">Shown from this session\'s cache — no new API call used.</p>' : ''}
       <div class="result-actions">
         <button class="icon-btn" id="copyLiveBtn">${iconLabel(ICONS.clipboard, "Copy status")}</button>
+        <button class="icon-btn" id="shareLiveBtn">${iconLabel(ICONS.whatsapp, "Share")}</button>
       </div>
       <details style="margin-top:14px;">
         <summary style="cursor:pointer;color:var(--dim);font-size:12px;">Raw response (full data)</summary>
@@ -400,6 +498,9 @@ function renderLive(data, meta){
       copyBtn.classList.add('copied');
       setTimeout(() => { copyBtn.innerHTML = iconLabel(ICONS.clipboard, 'Copy status'); copyBtn.classList.remove('copied'); }, 1800);
     });
+  });
+  document.getElementById('shareLiveBtn').addEventListener('click', () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
   });
 
   if(etaMinRaw !== null && !meta.offline){
@@ -437,6 +538,7 @@ async function runPnrCheck(pnr){
   try{
     const result = await cachedFetch(key, `/api/pnr-status?pnr=${pnr}`);
     pushRecent('rp_recent_pnr', pnr);
+    pushHistory('pnr', pnr, `PNR ${pnr}`);
     refreshPnrChips();
     renderPnr(result.data, result);
   }catch(err){
@@ -486,6 +588,7 @@ function renderPnr(data, meta){
       ${meta.fromCache && !meta.offline ? '<p class="hint">Shown from this session\'s cache — no new API call used.</p>' : ''}
       <div class="result-actions">
         <button class="icon-btn" id="copyPnrBtn">${iconLabel(ICONS.clipboard, "Copy status")}</button>
+        <button class="icon-btn" id="sharePnrBtn">${iconLabel(ICONS.whatsapp, "Share")}</button>
       </div>
       <details style="margin-top:14px;">
         <summary style="cursor:pointer;color:var(--dim);font-size:12px;">Raw response (full data)</summary>
@@ -501,6 +604,9 @@ function renderPnr(data, meta){
       copyBtn.classList.add('copied');
       setTimeout(() => { copyBtn.innerHTML = iconLabel(ICONS.clipboard, 'Copy status'); copyBtn.classList.remove('copied'); }, 1800);
     });
+  });
+  document.getElementById('sharePnrBtn').addEventListener('click', () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
   });
 }
 
@@ -608,6 +714,7 @@ async function runBetweenSearch(){
   try{
     const result = await cachedFetch(key, `/api/trains-between?from=${from}&to=${to}&date=${date}`);
     pushRecent('rp_recent_routes', from + '→' + to);
+    pushHistory('between', from + '→' + to, `${from} → ${to}`);
     refreshBetweenChips();
     renderBetween(result.data, result);
   }catch(err){
@@ -641,5 +748,7 @@ function renderBetween(data, meta){
   }).join('');
   betweenResult.innerHTML = staleBadge + items + (meta.fromCache && !meta.offline ? '<p class="hint">Shown from this session\'s cache — no new API call used.</p>' : '');
 }
+
+renderHistory();
 
 })();

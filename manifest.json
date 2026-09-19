@@ -3,8 +3,8 @@
   "short_name": "Ensura",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#0b0d10",
-  "theme_color": "#0b0d10",
+  "background_color": "#f3f6fd",
+  "theme_color": "#2f6ef2",
   "icons": [
     { "src": "favicon.png", "sizes": "512x512", "type": "image/png" },
     { "src": "favicon-32.png", "sizes": "32x32", "type": "image/png" }

@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="512x512" href="favicon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -61,6 +62,17 @@
       <span>Between Stations</span>
     </button>
   </div>
+
+  <button class="scan-cta" id="scanTicketBtn">
+    <span class="scan-cta-icon">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2M20 8V6a2 2 0 00-2-2h-2M20 16v2a2 2 0 01-2 2h-2" stroke-linecap="round"/><circle cx="12" cy="12" r="3.5"/></svg>
+    </span>
+    <span class="scan-cta-text">
+      <b>Scan your ticket</b>
+      <span>Auto-fill PNR or train number from a photo</span>
+    </span>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
 
   <nav class="tabs" id="tabs" hidden>
     <span class="tab-indicator" id="tabIndicator"></span>
@@ -171,6 +183,25 @@
 <footer class="foot">
   Data via IRCTC unofficial API (RapidAPI). Not affiliated with Indian Railways. Free-tier quota is limited — results are cached per session to conserve calls.
 </footer>
+
+<div class="scan-modal" id="scanModal" hidden>
+  <div class="scan-backdrop" id="scanBackdrop"></div>
+  <div class="scan-sheet">
+    <div class="scan-sheet-head">
+      <span>Scan Ticket</span>
+      <button id="scanClose" aria-label="Close">✕</button>
+    </div>
+
+    <div class="scan-body" id="scanBody">
+      <label class="scan-dropzone" id="scanDropzone">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2M20 8V6a2 2 0 00-2-2h-2M20 16v2a2 2 0 01-2 2h-2" stroke-linecap="round"/><circle cx="12" cy="12" r="3.5"/></svg>
+        <b>Take a photo or upload</b>
+        <span>PNR slip, ticket printout, or SMS screenshot</span>
+        <input type="file" id="scanFileInput" accept="image/*" capture="environment" hidden>
+      </label>
+    </div>
+  </div>
+</div>
 
 <script src="script.js"></script>
 </body>

@@ -8,6 +8,33 @@ if('serviceWorker' in navigator){
   });
 }
 
+/* ---------------- installable PWA prompt ---------------- */
+let deferredInstallPrompt = null;
+const installBar = document.getElementById('installBar');
+const installBtn = document.getElementById('installBtn');
+const installDismiss = document.getElementById('installDismiss');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  if(localStorage.getItem('rp_install_dismissed') === '1') return;
+  deferredInstallPrompt = e;
+  if(installBar) installBar.hidden = false;
+});
+installBtn?.addEventListener('click', async () => {
+  if(!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  if(installBar) installBar.hidden = true;
+});
+installDismiss?.addEventListener('click', () => {
+  if(installBar) installBar.hidden = true;
+  localStorage.setItem('rp_install_dismissed', '1');
+});
+window.addEventListener('appinstalled', () => {
+  if(installBar) installBar.hidden = true;
+});
+
 /* ---------------- online/offline banner ---------------- */
 const netBanner = document.getElementById('netBanner');
 function updateNetBanner(){
@@ -80,7 +107,36 @@ window.addEventListener('DOMContentLoaded', () => {
   if(qiBetween) qiBetween.innerHTML = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M8 7l8 10M13 7h3v3"/></svg>`;
 });
 
-/* ---------------- localStorage: favorites & recents ---------------- */
+/* ---------------- dark/light theme toggle ---------------- */
+const themeToggle = document.getElementById('themeToggle');
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('rp_theme', t);
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if(metaTheme) metaTheme.setAttribute('content', t === 'dark' ? '#161b2e' : '#2f6ef2');
+}
+const savedTheme = localStorage.getItem('rp_theme')
+  || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+applyTheme(savedTheme);
+themeToggle?.addEventListener('click', () => {
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+
+/* ---------------- ripple micro-interaction (tiles + buttons) ---------------- */
+function addRipple(el){
+  el.addEventListener('click', function(e){
+    const rect = this.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height) * 1.6;
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
+    ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
+    this.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 550);
+  });
+}
+document.querySelectorAll('.quick-tile, .btn').forEach(addRipple);
 function loadList(key){
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch(e){ return []; }
 }
@@ -217,6 +273,18 @@ function pushHistory(type, value, label){
 }
 const HIST_ICONS = { live: ICONS.train, pnr: ICONS.clipboard, between: ICONS.pin };
 const HIST_LABELS = { live: 'Train', pnr: 'PNR', between: 'Route' };
+function deleteHistoryItem(index){
+  const item = document.querySelector(`.history-item[data-i="${index}"]`);
+  let hist = loadList('rp_history');
+  hist.splice(index, 1);
+  saveList('rp_history', hist);
+  if(item){
+    item.classList.add('removing');
+    setTimeout(renderHistory, 250);
+  } else {
+    renderHistory();
+  }
+}
 function renderHistory(){
   const list = loadList('rp_history');
   const el = document.getElementById('historyList');
@@ -230,7 +298,14 @@ function renderHistory(){
       <span class="h-icon">${HIST_ICONS[h.type] || ''}</span>
       <span class="h-text">${escapeHtml(h.label)}</span>
       <span class="h-type">${HIST_LABELS[h.type] || ''}</span>
+      <button class="h-del" data-i="${i}" aria-label="Remove"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
     </div>`).join('');
+  el.querySelectorAll('.h-del').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteHistoryItem(Number(btn.dataset.i));
+    });
+  });
   el.querySelectorAll('.history-item').forEach(row => {
     row.addEventListener('click', () => {
       const h = list[Number(row.dataset.i)];

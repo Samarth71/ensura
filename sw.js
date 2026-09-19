@@ -1,4 +1,4 @@
-const CACHE = 'ensura-shell-v9';
+const CACHE = 'ensura-shell-v11';
 const SHELL_FILES = [
   './',
   './index.html',

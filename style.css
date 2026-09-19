@@ -56,6 +56,7 @@ body{
   background:var(--text);color:#fff;font-size:12.5px;
   padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));
 }
+.install-bar[hidden]{display:none;}
 .install-bar span{flex:1;}
 .install-bar button{
   border:none;border-radius:8px;font-family:var(--font);font-weight:600;

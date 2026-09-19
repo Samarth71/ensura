@@ -18,21 +18,21 @@ window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   if(localStorage.getItem('rp_install_dismissed') === '1') return;
   deferredInstallPrompt = e;
-  if(installBar) installBar.hidden = false;
+  if(installBar){ installBar.hidden = false; installBar.style.display = 'flex'; }
 });
 installBtn?.addEventListener('click', async () => {
   if(!deferredInstallPrompt) return;
   deferredInstallPrompt.prompt();
   await deferredInstallPrompt.userChoice;
   deferredInstallPrompt = null;
-  if(installBar) installBar.hidden = true;
+  if(installBar){ installBar.hidden = true; installBar.style.display = 'none'; }
 });
 installDismiss?.addEventListener('click', () => {
-  if(installBar) installBar.hidden = true;
+  if(installBar){ installBar.hidden = true; installBar.style.display = 'none'; }
   localStorage.setItem('rp_install_dismissed', '1');
 });
 window.addEventListener('appinstalled', () => {
-  if(installBar) installBar.hidden = true;
+  if(installBar){ installBar.hidden = true; installBar.style.display = 'none'; }
 });
 
 /* ---------------- online/offline banner ---------------- */

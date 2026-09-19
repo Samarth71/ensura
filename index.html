@@ -13,6 +13,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="512x512" href="favicon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -81,6 +83,10 @@
       <label class="toggle-row">
         <input type="checkbox" id="autoRefreshToggle">
         <span>Auto-refresh every 3 min while I'm on this tab, and alert me if delay changes. <b>Uses 1 API call per refresh</b> — turn on only when actually travelling.</span>
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" id="gpsShareToggle">
+        <span><b>I'm on this train right now</b> — share my live location so others tracking it can see where it actually is. No API calls used; free, unlimited, and stops the moment you switch this off.</span>
       </label>
       <p class="hint">Uses 1 API call. Same train + day is cached for this session — refresh won't cost another call.</p>
       <div class="chip-row" id="liveFavChips"></div>

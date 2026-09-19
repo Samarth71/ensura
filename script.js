@@ -86,7 +86,11 @@ function positionIndicator(el){
   indicator.style.left = el.offsetLeft + 'px';
   indicator.style.width = el.offsetWidth + 'px';
 }
+let currentTab = 'live';
+let lastNonLiveTab = 'between';
 function activateTab(tabKey){
+  if(currentTab !== 'live' && currentTab !== tabKey) lastNonLiveTab = currentTab;
+  currentTab = tabKey;
   tabs.forEach(x => x.classList.toggle('active', x.dataset.tab === tabKey));
   panels.forEach(x => x.classList.toggle('active', x.id === 'panel-' + tabKey));
   document.querySelectorAll('.quick-tile').forEach(x => x.classList.toggle('active', x.dataset.tab === tabKey));
@@ -656,29 +660,38 @@ function renderLive(data, meta){
   liveResult.innerHTML = `
     <div class="train-card">
       ${staleBadge}
-      <div class="train-head">
-        <div class="train-name">${escapeHtml(name)}</div>
-        <div class="train-no">#${escapeHtml(num)}</div>
-      </div>
-      ${current ? `<div style="font-size:13px;color:var(--dim)">Currently near: ${escapeHtml(current)}</div>` : ''}
-      <div class="${statusClass}">${escapeHtml(statusText)}</div>
-      <div class="crowd-map-wrap" id="crowdMapWrap">
+      <button class="detail-back" id="liveBackBtn">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="crowd-map-wrap hero" id="crowdMapWrap">
         <div class="crowd-map-loading">Checking for live rider reports…</div>
       </div>
+      <div class="train-head">
+        <div>
+          <div class="train-name">${escapeHtml(name)}</div>
+          <div class="train-no">Train No. ${escapeHtml(num)}</div>
+        </div>
+        <div class="train-head-actions">
+          <button class="icon-round" id="copyLiveBtn" title="Copy status">${ICONS.clipboard}</button>
+          <button class="icon-round" id="shareLiveBtn" title="Share on WhatsApp">${ICONS.whatsapp}</button>
+        </div>
+      </div>
+      ${current ? `<div style="font-size:13px;color:var(--dim);margin-top:2px;">Currently near: ${escapeHtml(current)}</div>` : ''}
+      <div class="${statusClass}">${escapeHtml(statusText)}</div>
       ${journeyHtml}
       ${etaMinRaw !== null && !meta.offline ? `<div class="countdown" id="liveCountdown"></div>` : ''}
       ${progressHtml}
       ${stopsHtml}
       ${meta.fromCache && !meta.offline ? '<p class="hint">Shown from this session\'s cache — no new API call used.</p>' : ''}
-      <div class="result-actions">
-        <button class="icon-btn" id="copyLiveBtn">${iconLabel(ICONS.clipboard, "Copy status")}</button>
-        <button class="icon-btn" id="shareLiveBtn">${iconLabel(ICONS.whatsapp, "Share")}</button>
-      </div>
       <details style="margin-top:14px;">
         <summary style="cursor:pointer;color:var(--dim);font-size:12px;">Raw response (full data)</summary>
         <pre style="white-space:pre-wrap;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;max-height:260px;overflow:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
       </details>
     </div>`;
+
+  document.getElementById('liveBackBtn')?.addEventListener('click', () => {
+    activateTab(lastNonLiveTab || 'between');
+  });
 
   const copyBtn = document.getElementById('copyLiveBtn');
   copyBtn.addEventListener('click', () => {
@@ -914,31 +927,180 @@ async function runBetweenSearch(){
 }
 document.getElementById('betweenSubmit').addEventListener('click', runBetweenSearch);
 
+let lastBetweenList = null;
+let sortAsc = true;
+
+function parseTimeToMinutes(t){
+  const m = String(t).match(/(\d{1,2}):(\d{2})/);
+  if(!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
 function renderBetween(data, meta){
   meta = meta || {};
   const list = pick(data, ['trainBtwnStnsList','trains','data'], []);
   const staleBadge = meta.offline
     ? `<div class="stale-badge">⚠ Offline${meta.savedAt ? ' — last updated ' + timeAgo(meta.savedAt) : ''}</div>`
     : '';
+  const pill = document.getElementById('floatingPill');
+  const countEl = document.getElementById('betweenResultCount');
+  const headerEl = document.getElementById('betweenResultHeader');
+  const routeLabelEl = document.getElementById('betweenRouteLabel');
+  const from = document.getElementById('fromStation')?.value.trim().toUpperCase() || '';
+  const to = document.getElementById('toStation')?.value.trim().toUpperCase() || '';
+
   if(!Array.isArray(list) || !list.length){
+    if(pill) pill.hidden = true;
+    if(headerEl) headerEl.hidden = true;
     betweenResult.innerHTML = `${staleBadge}<div class="status-msg">No trains found for this route/date.</div>
       <details style="margin-top:10px;"><summary style="cursor:pointer;color:var(--dim);font-size:12px;">Raw response</summary>
       <pre style="white-space:pre-wrap;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;">${escapeHtml(JSON.stringify(data, null, 2))}</pre></details>`;
     return;
   }
-  const items = list.map(t => {
+
+  lastBetweenList = list;
+  activeTypeFilters.clear();
+  if(pill) pill.hidden = false;
+  if(headerEl) headerEl.hidden = false;
+  if(routeLabelEl) routeLabelEl.textContent = from && to ? `${from} → ${to}` : 'Search Results';
+  if(countEl) countEl.textContent = `${list.length} train${list.length === 1 ? '' : 's'} found`;
+
+  const journeyDateVal = document.getElementById('journeyDate')?.value || todayStr;
+  const journeyDateObj = new Date(journeyDateVal + 'T00:00:00');
+  const journeyDateLabel = journeyDateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' });
+
+  renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel);
+}
+
+function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel){
+  const sorted = [...list].sort((a, b) => {
+    const da = parseTimeToMinutes(pick(a, ['from_std','departureTime'], '')) ?? 9999;
+    const db = parseTimeToMinutes(pick(b, ['from_std','departureTime'], '')) ?? 9999;
+    return sortAsc ? da - db : db - da;
+  });
+
+  const items = sorted.map((t, i) => {
     const name = pick(t, ['train_name','trainName'], 'Train');
     const no = pick(t, ['train_number','trainNumber'], '--');
     const dep = pick(t, ['from_std','departureTime'], '--');
     const arr = pick(t, ['to_std','arrivalTime'], '--');
     const dur = pick(t, ['duration','travelTime'], '');
-    return `<div class="train-list-item">
-      <div class="l"><div class="name">${escapeHtml(name)}</div><div class="no">#${escapeHtml(no)}</div></div>
-      <div class="r">${escapeHtml(dep)} → ${escapeHtml(arr)}${dur ? '<br>'+escapeHtml(dur) : ''}</div>
-    </div>`;
+    const runsOn = pick(t, ['run_days','runDays','runningDays'], null);
+
+    // Best-effort arrival date: if arrival clock-time is earlier than
+    // departure clock-time, the train likely arrives the next day.
+    const depMin = parseTimeToMinutes(dep);
+    const arrMin = parseTimeToMinutes(arr);
+    let arrDateLabel = journeyDateLabel;
+    if(depMin !== null && arrMin !== null && arrMin < depMin){
+      const nextDay = new Date(journeyDateObj);
+      nextDay.setDate(nextDay.getDate() + 1);
+      arrDateLabel = nextDay.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' });
+    }
+
+    return `<button class="train-list-item" data-no="${escapeHtml(no)}" data-i="${i}">
+      <div class="tli-top">
+        <div>
+          <div class="tli-name">${escapeHtml(name)}</div>
+          <div class="tli-no">Train No. ${escapeHtml(no)}</div>
+        </div>
+        ${dur ? `<div class="tli-dur">${escapeHtml(dur)}</div>` : ''}
+      </div>
+      <div class="tli-ticket">
+        <div class="tli-dates"><span>${escapeHtml(journeyDateLabel)}</span><span>${escapeHtml(arrDateLabel)}</span></div>
+        ${runsOn ? `<div class="tli-runs">${escapeHtml(runsOn)}</div>` : ''}
+        <div class="tli-route">
+          <span class="tli-time">${escapeHtml(dep)}</span>
+          <span class="tli-line"><span class="tli-dot"></span><span class="tli-bar"></span><span class="tli-dot end"></span></span>
+          <span class="tli-time">${escapeHtml(arr)}</span>
+        </div>
+      </div>
+      <div class="tli-cta">${iconLabel(ICONS.train, 'View live status & full route')}</div>
+    </button>`;
   }).join('');
+
   betweenResult.innerHTML = staleBadge + items + (meta.fromCache && !meta.offline ? '<p class="hint">Shown from this session\'s cache — no new API call used.</p>' : '');
+
+  betweenResult.querySelectorAll('.train-list-item').forEach(card => {
+    card.addEventListener('click', () => {
+      const trainNo = card.dataset.no;
+      if(!/^\d{4,5}$/.test(trainNo)){
+        showToast("This train's number isn't available for live tracking.");
+        return;
+      }
+      activateTab('live');
+      liveInput.value = trainNo;
+      syncFavBtn();
+      showToast('Opening live status — uses 1 API call.');
+      runLiveStatus(trainNo);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
 }
+
+/* ---------------- train-type filter (detected from train name, not fake) ---------------- */
+const TRAIN_TYPES = ['Rajdhani','Shatabdi','Duronto','Garib Rath','Jan Shatabdi','Humsafar','Tejas','Vande Bharat','Superfast','Express','Passenger','Intercity'];
+function detectType(name){
+  const n = String(name).toLowerCase();
+  for(const t of TRAIN_TYPES){ if(n.includes(t.toLowerCase())) return t; }
+  return null;
+}
+const activeTypeFilters = new Set();
+function applyTypeFilter(list){
+  if(!activeTypeFilters.size) return list;
+  return list.filter(t => {
+    const name = pick(t, ['train_name','trainName'], '');
+    const type = detectType(name);
+    return type && activeTypeFilters.has(type);
+  });
+}
+function refreshBetweenView(){
+  if(!lastBetweenList) return;
+  const journeyDateVal = document.getElementById('journeyDate')?.value || todayStr;
+  const journeyDateObj = new Date(journeyDateVal + 'T00:00:00');
+  const journeyDateLabel = journeyDateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' });
+  const visible = applyTypeFilter(lastBetweenList);
+  const countEl = document.getElementById('betweenResultCount');
+  if(countEl) countEl.textContent = `${visible.length} train${visible.length === 1 ? '' : 's'} found${activeTypeFilters.size ? ' · filtered' : ''}`;
+  renderBetweenList(visible, '', { fromCache: true, offline: false }, journeyDateObj, journeyDateLabel);
+}
+
+document.getElementById('betweenBackBtn')?.addEventListener('click', () => {
+  document.getElementById('panel-between')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+document.getElementById('pillSort')?.addEventListener('click', function(){
+  sortAsc = !sortAsc;
+  this.querySelector('svg')?.style.setProperty('transform', sortAsc ? 'scaleY(1)' : 'scaleY(-1)');
+  refreshBetweenView();
+});
+
+const filterSheet = document.getElementById('filterSheet');
+document.getElementById('pillFilter')?.addEventListener('click', () => {
+  if(!lastBetweenList || !filterSheet) return;
+  const typesPresent = [...new Set(lastBetweenList.map(t => detectType(pick(t, ['train_name','trainName'], ''))).filter(Boolean))];
+  const optionsEl = document.getElementById('filterOptions');
+  if(!typesPresent.length){
+    optionsEl.innerHTML = '<div class="hint">No recognizable train types in this result set.</div>';
+  } else {
+    optionsEl.innerHTML = typesPresent.map(t =>
+      `<button class="filter-chip${activeTypeFilters.has(t) ? ' selected' : ''}" data-type="${escapeHtml(t)}">${escapeHtml(t)}</button>`
+    ).join('');
+    optionsEl.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const t = chip.dataset.type;
+        if(activeTypeFilters.has(t)) activeTypeFilters.delete(t); else activeTypeFilters.add(t);
+        chip.classList.toggle('selected');
+      });
+    });
+  }
+  filterSheet.hidden = false;
+});
+document.getElementById('filterSheetClose')?.addEventListener('click', () => { if(filterSheet) filterSheet.hidden = true; });
+document.getElementById('filterApply')?.addEventListener('click', () => {
+  if(filterSheet) filterSheet.hidden = true;
+  refreshBetweenView();
+});
 
 renderHistory();
 

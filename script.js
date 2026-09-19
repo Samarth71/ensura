@@ -88,18 +88,60 @@ function positionIndicator(el){
 }
 let currentTab = 'live';
 let lastNonLiveTab = 'between';
-function activateTab(tabKey){
+function pathForTab(tabKey, trainNo){
+  if(tabKey === 'live') return trainNo ? `/live/${trainNo}` : '/live';
+  if(tabKey === 'pnr') return '/pnr';
+  if(tabKey === 'between') return '/between';
+  return '/live';
+}
+
+function activateTab(tabKey, direction, opts){
+  opts = opts || {};
   if(currentTab !== 'live' && currentTab !== tabKey) lastNonLiveTab = currentTab;
+  const dir = direction || (tabKey === 'live' ? 'forward' : 'back');
   currentTab = tabKey;
   tabs.forEach(x => x.classList.toggle('active', x.dataset.tab === tabKey));
-  panels.forEach(x => x.classList.toggle('active', x.id === 'panel-' + tabKey));
+  panels.forEach(x => {
+    const isTarget = x.id === 'panel-' + tabKey;
+    if(isTarget){
+      x.classList.remove('slide-forward', 'slide-back');
+      void x.offsetWidth; // force reflow so the animation restarts every time
+      x.classList.add(dir === 'back' ? 'slide-back' : 'slide-forward');
+    }
+    x.classList.toggle('active', isTarget);
+  });
   document.querySelectorAll('.quick-tile').forEach(x => x.classList.toggle('active', x.dataset.tab === tabKey));
   positionIndicator(document.querySelector('.tab.active'));
+
+  if(!opts.skipPush){
+    const path = pathForTab(tabKey, opts.trainNo);
+    if(location.pathname !== path){
+      history.pushState({ tab: tabKey, trainNo: opts.trainNo || null }, '', path);
+    }
+  }
 }
 tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
 document.querySelectorAll('.quick-tile').forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
 window.addEventListener('load', () => positionIndicator(document.querySelector('.tab.active')));
 window.addEventListener('resize', () => positionIndicator(document.querySelector('.tab.active')));
+
+/* ---------------- browser back/forward support (real page-navigation feel) ---------------- */
+function routeFromLocation(){
+  const parts = location.pathname.split('/').filter(Boolean);
+  if(parts[0] === 'live') return { tab: 'live', trainNo: parts[1] || null };
+  if(parts[0] === 'pnr') return { tab: 'pnr', trainNo: null };
+  if(parts[0] === 'between') return { tab: 'between', trainNo: null };
+  return { tab: 'live', trainNo: null };
+}
+window.addEventListener('popstate', (e) => {
+  const route = (e.state && e.state.tab) ? e.state : routeFromLocation();
+  activateTab(route.tab, 'back', { skipPush: true });
+  if(route.tab === 'live' && route.trainNo){
+    liveInput.value = route.trainNo;
+    syncFavBtn();
+    runLiveStatus(route.trainNo);
+  }
+});
 
 /* ---------------- quick-tile icons ---------------- */
 window.addEventListener('DOMContentLoaded', () => {
@@ -209,10 +251,23 @@ async function cachedFetch(key, url){
     const saved = localStorage.getItem(offlineKey);
     if(saved){
       const parsed = JSON.parse(saved);
-      return { data: parsed.data, fromCache: true, offline: true, savedAt: parsed.savedAt, networkFailed: true };
+      return {
+        data: parsed.data, fromCache: true, offline: false, apiError: true,
+        errorMessage: err.message, savedAt: parsed.savedAt
+      };
     }
     throw err;
   }
+}
+
+function staleBadgeHtml(meta){
+  if(meta.offline){
+    return `<div class="stale-badge">⚠ Offline${meta.savedAt ? ' — last updated ' + timeAgo(meta.savedAt) : ''}</div>`;
+  }
+  if(meta.apiError){
+    return `<div class="stale-badge">⚠ Couldn't refresh (${escapeHtml(meta.errorMessage || 'server error')})${meta.savedAt ? ' — showing result from ' + timeAgo(meta.savedAt) : ''}</div>`;
+  }
+  return '';
 }
 
 function timeAgo(ts){
@@ -315,7 +370,7 @@ function renderHistory(){
       const h = list[Number(row.dataset.i)];
       if(!h) return;
       if(h.type === 'live'){
-        activateTab('live');
+        activateTab('live', undefined, { trainNo: h.value });
         document.getElementById('liveTrainNo').value = h.value;
         syncFavBtn();
         runLiveStatus(h.value);
@@ -653,9 +708,7 @@ function renderLive(data, meta){
   }
 
   const shareText = `${name} #${num} — ${statusText}${current ? ' (near ' + current + ')' : ''}`;
-  const staleBadge = meta.offline
-    ? `<div class="stale-badge">⚠ Offline${meta.savedAt ? ' — last updated ' + timeAgo(meta.savedAt) : ''}</div>`
-    : '';
+  const staleBadge = staleBadgeHtml(meta);
 
   liveResult.innerHTML = `
     <div class="train-card">
@@ -679,7 +732,7 @@ function renderLive(data, meta){
       ${current ? `<div style="font-size:13px;color:var(--dim);margin-top:2px;">Currently near: ${escapeHtml(current)}</div>` : ''}
       <div class="${statusClass}">${escapeHtml(statusText)}</div>
       ${journeyHtml}
-      ${etaMinRaw !== null && !meta.offline ? `<div class="countdown" id="liveCountdown"></div>` : ''}
+      ${etaMinRaw !== null && !meta.offline && !meta.apiError ? `<div class="countdown" id="liveCountdown"></div>` : ''}
       ${progressHtml}
       ${stopsHtml}
       ${meta.fromCache && !meta.offline ? '<p class="hint">Shown from this session\'s cache — no new API call used.</p>' : ''}
@@ -690,7 +743,7 @@ function renderLive(data, meta){
     </div>`;
 
   document.getElementById('liveBackBtn')?.addEventListener('click', () => {
-    activateTab(lastNonLiveTab || 'between');
+    activateTab(lastNonLiveTab || 'between', 'back');
   });
 
   const copyBtn = document.getElementById('copyLiveBtn');
@@ -707,7 +760,7 @@ function renderLive(data, meta){
 
   loadCrowdMap(num);
 
-  if(etaMinRaw !== null && !meta.offline){
+  if(etaMinRaw !== null && !meta.offline && !meta.apiError){
     let secondsLeft = Math.max(0, Math.round(Number(etaMinRaw) * 60));
     const el = document.getElementById('liveCountdown');
     function tick(){
@@ -771,9 +824,7 @@ function renderPnr(data, meta){
     }).join('');
   }
 
-  const staleBadge = meta.offline
-    ? `<div class="stale-badge">⚠ Offline${meta.savedAt ? ' — last updated ' + timeAgo(meta.savedAt) : ''}</div>`
-    : '';
+  const staleBadge = staleBadgeHtml(meta);
 
   pnrResult.innerHTML = `
     <div class="train-card">
@@ -939,9 +990,7 @@ function parseTimeToMinutes(t){
 function renderBetween(data, meta){
   meta = meta || {};
   const list = pick(data, ['trainBtwnStnsList','trains','data'], []);
-  const staleBadge = meta.offline
-    ? `<div class="stale-badge">⚠ Offline${meta.savedAt ? ' — last updated ' + timeAgo(meta.savedAt) : ''}</div>`
-    : '';
+  const staleBadge = staleBadgeHtml(meta);
   const pill = document.getElementById('floatingPill');
   const countEl = document.getElementById('betweenResultCount');
   const headerEl = document.getElementById('betweenResultHeader');
@@ -1007,6 +1056,8 @@ function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLa
         ${dur ? `<div class="tli-dur">${escapeHtml(dur)}</div>` : ''}
       </div>
       <div class="tli-ticket">
+        <span class="tli-punch left"></span>
+        <span class="tli-punch right"></span>
         <div class="tli-dates"><span>${escapeHtml(journeyDateLabel)}</span><span>${escapeHtml(arrDateLabel)}</span></div>
         ${runsOn ? `<div class="tli-runs">${escapeHtml(runsOn)}</div>` : ''}
         <div class="tli-route">
@@ -1028,7 +1079,7 @@ function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLa
         showToast("This train's number isn't available for live tracking.");
         return;
       }
-      activateTab('live');
+      activateTab('live', undefined, { trainNo });
       liveInput.value = trainNo;
       syncFavBtn();
       showToast('Opening live status — uses 1 API call.');
@@ -1103,5 +1154,152 @@ document.getElementById('filterApply')?.addEventListener('click', () => {
 });
 
 renderHistory();
+
+/* ================= SCAN TICKET (client-side OCR, no server, no API cost) ================= */
+const scanModal = document.getElementById('scanModal');
+const scanBody = document.getElementById('scanBody');
+const scanBackdrop = document.getElementById('scanBackdrop');
+const scanFileInput = document.getElementById('scanFileInput');
+
+function openScanModal(){
+  resetScanBody();
+  scanModal.hidden = false;
+}
+function closeScanModal(){
+  scanModal.hidden = true;
+}
+function resetScanBody(){
+  scanBody.innerHTML = `
+    <label class="scan-dropzone" id="scanDropzone">
+      <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2M20 8V6a2 2 0 00-2-2h-2M20 16v2a2 2 0 01-2 2h-2" stroke-linecap="round"/><circle cx="12" cy="12" r="3.5"/></svg>
+      <b>Take a photo or upload</b>
+      <span>PNR slip, ticket printout, or SMS screenshot</span>
+      <input type="file" id="scanFileInput" accept="image/*" capture="environment" hidden>
+    </label>`;
+  document.getElementById('scanFileInput')?.addEventListener('change', handleScanFile);
+}
+
+document.getElementById('scanTicketBtn')?.addEventListener('click', openScanModal);
+document.getElementById('scanClose')?.addEventListener('click', closeScanModal);
+scanBackdrop?.addEventListener('click', closeScanModal);
+
+async function handleScanFile(e){
+  const file = e.target.files?.[0];
+  if(!file) return;
+  const imgUrl = URL.createObjectURL(file);
+
+  scanBody.innerHTML = `
+    <div class="scan-preview">
+      <img src="${imgUrl}" alt="ticket">
+      <div class="scan-grid-overlay"></div>
+      <div class="scan-line"></div>
+    </div>
+    <div class="scan-status-text" id="scanStatusText">Reading your ticket…</div>`;
+
+  try{
+    if(typeof Tesseract === 'undefined'){
+      throw new Error('OCR library failed to load');
+    }
+    const result = await Tesseract.recognize(file, 'eng', {
+      logger: m => {
+        const el = document.getElementById('scanStatusText');
+        if(el && m.status === 'recognizing text'){
+          el.textContent = `Reading your ticket… ${Math.round((m.progress || 0) * 100)}%`;
+        }
+      }
+    });
+    const text = result.data.text || '';
+    extractAndShowResults(text);
+  }catch(err){
+    showScanError("Couldn't read that image clearly.");
+  }
+}
+
+function extractAndShowResults(text){
+  const cleaned = text.replace(/[^\S\r\n]+/g, ' ');
+
+  // PNR: 10 consecutive digits, ideally near the word PNR
+  let pnrMatch = cleaned.match(/PNR[:\s#-]*?(\d{10})/i);
+  if(!pnrMatch) pnrMatch = cleaned.match(/\b(\d{10})\b/);
+  const pnr = pnrMatch ? pnrMatch[1] : null;
+
+  // Train number: 4-5 digits, ideally near "Train No"
+  let trainMatch = cleaned.match(/Train\s*No\.?[:\s#-]*?(\d{4,5})/i);
+  if(!trainMatch) trainMatch = cleaned.match(/\b(\d{5})\b/); // 5-digit train numbers are common
+  if(!trainMatch) trainMatch = cleaned.match(/\b(\d{4})\b/);
+  const trainNo = trainMatch ? trainMatch[1] : null;
+
+  if(!pnr && !trainNo){
+    showScanError("Couldn't find a PNR or train number in that photo. Try a clearer, well-lit shot.");
+    return;
+  }
+
+  let cardsHtml = '';
+  if(pnr){
+    cardsHtml += `<div class="scan-result-card">
+      <span class="scan-result-check">${ICONS.check}</span>
+      <div class="scan-result-info">
+        <div class="scan-result-label">PNR detected</div>
+        <div class="scan-result-value">${escapeHtml(pnr)}</div>
+      </div>
+      <button class="scan-result-use" data-type="pnr" data-value="${escapeHtml(pnr)}">Use this</button>
+    </div>`;
+  }
+  if(trainNo){
+    cardsHtml += `<div class="scan-result-card">
+      <span class="scan-result-check">${ICONS.check}</span>
+      <div class="scan-result-info">
+        <div class="scan-result-label">Train number detected</div>
+        <div class="scan-result-value">${escapeHtml(trainNo)}</div>
+      </div>
+      <button class="scan-result-use" data-type="live" data-value="${escapeHtml(trainNo)}">Use this</button>
+    </div>`;
+  }
+
+  scanBody.innerHTML = `<div class="scan-results">${cardsHtml}</div>`;
+  scanBody.querySelectorAll('.scan-result-use').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type, value = btn.dataset.value;
+      closeScanModal();
+      if(type === 'pnr'){
+        activateTab('pnr');
+        document.getElementById('pnrInput').value = value;
+        runPnrCheck(value);
+      } else {
+        activateTab('live', undefined, { trainNo: value });
+        liveInput.value = value;
+        syncFavBtn();
+        runLiveStatus(value);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+}
+
+function showScanError(msg){
+  scanBody.innerHTML = `
+    <div class="scan-empty-state">
+      <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6" stroke-linecap="round"/></svg>
+      <p>${escapeHtml(msg)}</p>
+      <button class="scan-retry-btn" id="scanRetryBtn">Try another photo</button>
+    </div>`;
+  document.getElementById('scanRetryBtn')?.addEventListener('click', resetScanBody);
+}
+
+/* Establish the initial URL to match whichever tab loads, and honor a
+   deep link like /live/12951 shared by someone else. Runs last since it
+   depends on liveInput, runLiveStatus, and syncFavBtn above. */
+(function initRoute(){
+  const route = routeFromLocation();
+  history.replaceState({ tab: route.tab, trainNo: route.trainNo }, '', pathForTab(route.tab, route.trainNo));
+  if(route.tab !== 'live'){
+    activateTab(route.tab, 'forward', { skipPush: true });
+  }
+  if(route.tab === 'live' && route.trainNo){
+    liveInput.value = route.trainNo;
+    syncFavBtn();
+    runLiveStatus(route.trainNo);
+  }
+})();
 
 })();

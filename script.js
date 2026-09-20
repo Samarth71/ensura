@@ -339,6 +339,22 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+/* Convert a 24-hour "HH:MM" (optionally with seconds) time string to
+   12-hour "h:MM AM/PM" for easier reading. Leaves anything that doesn't
+   look like a clean time (e.g. "--") untouched. */
+function to12Hour(t){
+  if(t === null || t === undefined) return t;
+  const m = String(t).trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if(!m) return t;
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  if(h > 23 || h < 0) return t;
+  const period = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if(h === 0) h = 12;
+  return `${h}:${min} ${period}`;
+}
+
 /* ---------------- clean line-icon set (no platform emoji) ---------------- */
 const ICONS = {
   star: (filled) => `<svg viewBox="0 0 24 24" width="14" height="14" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.6"><path d="M12 3.5l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3.1-5.3 3.1 1.2-6-4.5-4.1 6-.7z" stroke-linejoin="round"/></svg>`,
@@ -678,7 +694,7 @@ function renderLive(data, meta){
         </div>
         <div class="journey-row">
           <div class="j-item"><div class="j-k">Avg speed</div><div class="j-v">${escapeHtml(speed)}</div></div>
-          <div class="j-item"><div class="j-k">Expected arrival</div><div class="j-v">${escapeHtml(destArrival || '—')}</div></div>
+          <div class="j-item"><div class="j-k">Expected arrival</div><div class="j-v">${escapeHtml(to12Hour(destArrival) || '—')}</div></div>
         </div>
       </div>`;
   }
@@ -737,7 +753,7 @@ function renderLive(data, meta){
             ${state === 'current' ? '<span class="route-live-badge">Live</span>' : ''}
           </div>
           <div class="route-meta">
-            <span>${escapeHtml(arr)} → ${escapeHtml(dep)}</span>
+            <span>${escapeHtml(to12Hour(arr))} → ${escapeHtml(to12Hour(dep))}</span>
             ${sd !== null ? `<span>· ${escapeHtml(sd)} km</span>` : ''}
             ${d !== null ? `<span class="route-delay ${dClass}">${d !== null && Number(d) > 0 ? '+' + escapeHtml(d) + ' min' : 'on time'}</span>` : ''}
           </div>
@@ -1133,9 +1149,9 @@ function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLa
         <div class="tli-dates"><span>${escapeHtml(journeyDateLabel)}</span><span>${escapeHtml(arrDateLabel)}</span></div>
         ${runsOn ? `<div class="tli-runs">${escapeHtml(runsOn)}</div>` : ''}
         <div class="tli-route">
-          <span class="tli-time">${escapeHtml(dep)}</span>
+          <span class="tli-time">${escapeHtml(to12Hour(dep))}</span>
           <span class="tli-line"><span class="tli-dot"></span><span class="tli-bar"></span><span class="tli-dot end"></span></span>
-          <span class="tli-time">${escapeHtml(arr)}</span>
+          <span class="tli-time">${escapeHtml(to12Hour(arr))}</span>
         </div>
       </div>
       <div class="tli-cta">${iconLabel(ICONS.train, 'View live status & full route')}</div>

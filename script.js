@@ -1004,10 +1004,18 @@ async function runBetweenSearch(){
   const to = document.getElementById('toStation').value.trim().toUpperCase();
   const date = document.getElementById('journeyDate').value || todayStr;
   if(!from || !to){
-    setStatus(betweenResult, 'Enter both from and to station codes.', true);
+    showToast('Enter both from and to station codes.');
     return;
   }
   showSkeleton(betweenResult);
+  showResultsSubpage('forward', true);
+  const routeLabelEl = document.getElementById('betweenRouteLabel');
+  const countEl = document.getElementById('betweenResultCount');
+  if(routeLabelEl) routeLabelEl.textContent = `${from} → ${to}`;
+  if(countEl) countEl.textContent = 'Searching…';
+  const pill = document.getElementById('floatingPill');
+  if(pill) pill.hidden = true;
+
   const key = 'rp_between_' + from + '_' + to + '_' + date;
   try{
     const result = await cachedFetch(key, `/api/trains-between?from=${from}&to=${to}&date=${date}`);
@@ -1016,6 +1024,7 @@ async function runBetweenSearch(){
     refreshBetweenChips();
     renderBetween(result.data, result);
   }catch(err){
+    if(countEl) countEl.textContent = 'Search failed';
     setStatus(betweenResult, 'Could not fetch trains: ' + err.message, true);
   }
 }
@@ -1068,7 +1077,6 @@ function renderBetween(data, meta){
     betweenResult.innerHTML = `${staleBadge}<div class="status-msg">No trains found for this route/date.</div>
       <details style="margin-top:10px;"><summary style="cursor:pointer;color:var(--dim);font-size:12px;">Raw response</summary>
       <pre style="white-space:pre-wrap;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;">${escapeHtml(JSON.stringify(data, null, 2))}</pre></details>`;
-    showResultsSubpage('forward', true);
     return;
   }
 
@@ -1083,7 +1091,6 @@ function renderBetween(data, meta){
   const journeyDateLabel = journeyDateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' });
 
   renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel);
-  showResultsSubpage('forward', true);
 }
 
 function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel){

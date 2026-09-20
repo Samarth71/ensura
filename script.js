@@ -362,7 +362,10 @@ const ICONS = {
   train: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="4" width="14" height="12" rx="3"/><path d="M5 11h14M9 16l-2 4M15 16l2 4M9 7h6"/><circle cx="8.5" cy="14" r=".4" fill="currentColor"/><circle cx="15.5" cy="14" r=".4" fill="currentColor"/></svg>`,
   clipboard: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1" stroke-linecap="round"/><path d="M9 11h6M9 15h6" stroke-linecap="round"/></svg>`,
   check: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.5l4.5 4.5L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  whatsapp: `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.6-.8-1.9-.9-.3-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.2.2-.3.2-.5.1-.3-.1-1.2-.4-2.2-1.4-.8-.7-1.4-1.6-1.5-1.9-.2-.3 0-.5.1-.6l.4-.5c.1-.1.2-.3.2-.4.1-.2 0-.3 0-.4l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.9 2.3 1 2.4c.1.2 1.7 2.6 4.2 3.6.6.2 1 .4 1.4.5.6.2 1.1.1 1.5.1.5-.1 1.6-.6 1.8-1.3.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.3z"/><path d="M12 3a9 9 0 00-7.7 13.6L3 21l4.5-1.2A9 9 0 1012 3z" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>`
+  whatsapp: `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.6-.8-1.9-.9-.3-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.2.2-.3.2-.5.1-.3-.1-1.2-.4-2.2-1.4-.8-.7-1.4-1.6-1.5-1.9-.2-.3 0-.5.1-.6l.4-.5c.1-.1.2-.3.2-.4.1-.2 0-.3 0-.4l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.9 2.3 1 2.4c.1.2 1.7 2.6 4.2 3.6.6.2 1 .4 1.4.5.6.2 1.1.1 1.5.1.5-.1 1.6-.6 1.8-1.3.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.3z"/><path d="M12 3a9 9 0 00-7.7 13.6L3 21l4.5-1.2A9 9 0 1012 3z" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>`,
+  rupee: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h12M6 9h12M6 4c4 0 6 1.8 6 4s-2 4-6 4h-1l7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  seat: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 5v9a2 2 0 002 2h8M6 5H4M6 5h2M16 16v3M8 16v3M16 9h2a2 2 0 012 2v5h-4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  pdf: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke-linecap="round"/></svg>`
 };
 function iconLabel(icon, text){
   return `<span style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;">${icon}${text}</span>`;
@@ -391,6 +394,99 @@ function deleteHistoryItem(index){
     renderHistory();
   }
 }
+/* ---------------- Fare & Seat Availability (on-demand, per train card) ---------------- */
+const SEAT_CLASSES = ['SL', '3A', '2A', '1A', '2S', 'CC'];
+
+async function openFarePanel(card){
+  const expand = card.querySelector('.tli-expand');
+  const trainNo = card.dataset.no, from = card.dataset.from, to = card.dataset.to;
+  const alreadyShowingFare = !expand.hidden && expand.dataset.kind === 'fare';
+  if(alreadyShowingFare){ expand.hidden = true; return; }
+
+  expand.hidden = false;
+  expand.dataset.kind = 'fare';
+  expand.innerHTML = `<div class="tli-expand-loading">Checking fares…</div>`;
+
+  const key = `rp_fare_${trainNo}_${from}_${to}`;
+  try{
+    const result = await cachedFetch(key, `/api/fare?trainNo=${trainNo}&from=${from}&to=${to}`);
+    renderFareResult(expand, result.data, result);
+  }catch(err){
+    expand.innerHTML = `<div class="tli-expand-error">Couldn't fetch fares: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderFareResult(expand, data, meta){
+  const rows = pick(data, ['data'], data);
+  let rowsHtml = '';
+  if(rows && typeof rows === 'object' && !Array.isArray(rows)){
+    rowsHtml = Object.entries(rows).map(([cls, val]) => {
+      const fareVal = (val && typeof val === 'object') ? pick(val, ['total_fare', 'fare', 'value'], JSON.stringify(val)) : val;
+      return `<div class="fare-row"><span class="fare-class">${escapeHtml(cls)}</span><span class="fare-amount">₹${escapeHtml(fareVal)}</span></div>`;
+    }).join('');
+  }
+  expand.innerHTML = `
+    <div class="tli-expand-title">Fare by class ${meta.fromCache ? '(cached)' : ''}</div>
+    ${rowsHtml || '<div class="tli-expand-error">No structured fare data — see raw response below.</div>'}
+    <details style="margin-top:8px;"><summary style="cursor:pointer;color:var(--dim);font-size:11px;">Raw response</summary>
+    <pre style="white-space:pre-wrap;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:6px;max-height:180px;overflow:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre></details>`;
+}
+
+function openSeatsPanel(card){
+  const expand = card.querySelector('.tli-expand');
+  const alreadyShowingSeats = !expand.hidden && expand.dataset.kind === 'seats-picker' || (!expand.hidden && expand.dataset.kind === 'seats-result');
+  if(alreadyShowingSeats){ expand.hidden = true; return; }
+
+  expand.hidden = false;
+  expand.dataset.kind = 'seats-picker';
+  expand.innerHTML = `
+    <div class="tli-expand-title">Pick a class — checking uses 1 API call</div>
+    <div class="seat-class-picker">
+      ${SEAT_CLASSES.map(c => `<button class="seat-class-chip" data-class="${c}">${c}</button>`).join('')}
+    </div>`;
+  expand.querySelectorAll('.seat-class-chip').forEach(chip => {
+    chip.addEventListener('click', () => checkSeatsForClass(card, expand, chip.dataset.class));
+  });
+}
+
+async function checkSeatsForClass(card, expand, classType){
+  const trainNo = card.dataset.no, from = card.dataset.from, to = card.dataset.to;
+  const journeyDate = document.getElementById('journeyDate')?.value || todayStr;
+  expand.dataset.kind = 'seats-result';
+  expand.innerHTML = `<div class="tli-expand-loading">Checking ${escapeHtml(classType)} availability…</div>`;
+
+  const key = `rp_seats_${trainNo}_${from}_${to}_${classType}_${journeyDate}`;
+  try{
+    const result = await cachedFetch(key, `/api/seat-availability?trainNo=${trainNo}&from=${from}&to=${to}&classType=${classType}&date=${journeyDate}`);
+    renderSeatsResult(expand, result.data, classType, result);
+  }catch(err){
+    expand.innerHTML = `<div class="tli-expand-error">Couldn't check seats: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderSeatsResult(expand, data, classType, meta){
+  const rows = pick(data, ['data'], []);
+  let rowsHtml = '';
+  if(Array.isArray(rows) && rows.length){
+    rowsHtml = rows.slice(0, 5).map(r => {
+      const date = pick(r, ['date'], '--');
+      const status = pick(r, ['current_status', 'availability_status'], '--');
+      const prob = pick(r, ['confirm_probability_percent'], null);
+      const isAvailable = /avail|current/i.test(String(status)) && !/wl|waitlist|not avail/i.test(String(status));
+      return `<div class="seat-row">
+        <span class="seat-date">${escapeHtml(date)}</span>
+        <span class="seat-status ${isAvailable ? 'ok' : 'wl'}">${escapeHtml(status)}</span>
+        ${prob !== null ? `<span class="seat-prob">${escapeHtml(prob)}% confirm chance</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+  expand.innerHTML = `
+    <div class="tli-expand-title">${escapeHtml(classType)} availability ${meta.fromCache ? '(cached)' : ''}</div>
+    ${rowsHtml || '<div class="tli-expand-error">No structured data — see raw response below.</div>'}
+    <details style="margin-top:8px;"><summary style="cursor:pointer;color:var(--dim);font-size:11px;">Raw response</summary>
+    <pre style="white-space:pre-wrap;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:6px;max-height:180px;overflow:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre></details>`;
+}
+
 function renderHistory(){
   const list = loadList('rp_history');
   const el = document.getElementById('historyList');
@@ -903,6 +999,7 @@ function renderPnr(data, meta){
       <div class="result-actions">
         <button class="icon-btn" id="copyPnrBtn">${iconLabel(ICONS.clipboard, "Copy status")}</button>
         <button class="icon-btn" id="sharePnrBtn">${iconLabel(ICONS.whatsapp, "Share")}</button>
+        <button class="icon-btn" id="downloadPnrPdf">${iconLabel(ICONS.pdf, "Download PDF")}</button>
       </div>
       <details style="margin-top:14px;">
         <summary style="cursor:pointer;color:var(--dim);font-size:12px;">Raw response (full data)</summary>
@@ -922,6 +1019,59 @@ function renderPnr(data, meta){
   document.getElementById('sharePnrBtn').addEventListener('click', () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
   });
+  document.getElementById('downloadPnrPdf')?.addEventListener('click', () => {
+    generatePnrPdf({
+      pnr: pnrInput.value.trim(), trainName, trainNo, from, to, dateOfJourney, chartStatus,
+      passengers: Array.isArray(passengers) ? passengers : []
+    });
+  });
+}
+
+function generatePnrPdf(info){
+  if(!window.jspdf){ showToast("PDF library didn't load — check your connection."); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const margin = 48;
+  let y = margin;
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+  doc.text('Ensura — PNR Status', margin, y); y += 30;
+
+  doc.setDrawColor(220); doc.line(margin, y, 548, y); y += 24;
+
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+  const rows = [
+    ['PNR', info.pnr || '—'],
+    ['Train', `${info.trainName} (#${info.trainNo})`],
+    ['From', info.from], ['To', info.to],
+    ['Date of journey', info.dateOfJourney], ['Chart status', info.chartStatus]
+  ];
+  rows.forEach(([k, v]) => {
+    doc.setFont('helvetica', 'bold'); doc.text(String(k) + ':', margin, y);
+    doc.setFont('helvetica', 'normal'); doc.text(String(v), margin + 130, y);
+    y += 20;
+  });
+
+  if(info.passengers.length){
+    y += 10;
+    doc.setDrawColor(220); doc.line(margin, y, 548, y); y += 22;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Passengers', margin, y); y += 20;
+    doc.setFontSize(11);
+    info.passengers.forEach((p, i) => {
+      const book = pick(p, ['bookingStatus', 'booking_status'], '--');
+      const cur = pick(p, ['currentStatus', 'current_status'], '--');
+      doc.setFont('helvetica', 'bold'); doc.text(`Passenger ${i + 1}:`, margin, y);
+      doc.setFont('helvetica', 'normal'); doc.text(`${book} → ${cur}`, margin + 130, y);
+      y += 20;
+    });
+  }
+
+  y += 24;
+  doc.setFontSize(9); doc.setTextColor(140);
+  doc.text('Generated by Ensura. Data via IRCTC unofficial API — not an official ticket document.', margin, y);
+
+  doc.save(`PNR-${info.pnr || 'status'}.pdf`);
 }
 
 /* ================= TRAINS BETWEEN STATIONS ================= */
@@ -1006,13 +1156,37 @@ document.getElementById('journeyDate').min = todayStr;
 
 const betweenResult = document.getElementById('betweenResult');
 const betweenRecentChips = document.getElementById('betweenRecentChips');
+const betweenFavChips = document.getElementById('betweenFavChips');
 function refreshBetweenChips(){
-  renderChips(betweenRecentChips, loadList('rp_recent_routes'), v => {
+  renderChips(betweenFavChips, loadList('rp_fav_routes'), v => {
+    const [f,t] = v.split('→');
+    document.getElementById('fromStation').value = f;
+    document.getElementById('toStation').value = t;
+  }, true);
+  renderChips(betweenRecentChips, loadList('rp_recent_routes').filter(v => !loadList('rp_fav_routes').includes(v)), v => {
     const [f,t] = v.split('→');
     document.getElementById('fromStation').value = f;
     document.getElementById('toStation').value = t;
   }, false);
 }
+function syncRouteFavBtn(){
+  const btn = document.getElementById('routeFavBtn');
+  if(!btn) return;
+  const from = document.getElementById('fromStation')?.value.trim().toUpperCase() || '';
+  const to = document.getElementById('toStation')?.value.trim().toUpperCase() || '';
+  const key = from && to ? `${from}→${to}` : '';
+  const isFav = key && loadList('rp_fav_routes').includes(key);
+  btn.classList.toggle('active', isFav);
+  btn.querySelector('svg').setAttribute('fill', isFav ? 'currentColor' : 'none');
+}
+document.getElementById('routeFavBtn')?.addEventListener('click', () => {
+  const from = document.getElementById('fromStation')?.value.trim().toUpperCase() || '';
+  const to = document.getElementById('toStation')?.value.trim().toUpperCase() || '';
+  if(!from || !to) return;
+  toggleFavorite('rp_fav_routes', `${from}→${to}`);
+  syncRouteFavBtn();
+  refreshBetweenChips();
+});
 refreshBetweenChips();
 
 async function runBetweenSearch(){
@@ -1090,6 +1264,7 @@ function renderBetween(data, meta){
     if(pill) pill.hidden = true;
     if(routeLabelEl) routeLabelEl.textContent = from && to ? `${from} → ${to}` : 'Search Results';
     if(countEl) countEl.textContent = 'No trains found';
+    syncRouteFavBtn();
     betweenResult.innerHTML = `${staleBadge}<div class="status-msg">No trains found for this route/date.</div>
       <details style="margin-top:10px;"><summary style="cursor:pointer;color:var(--dim);font-size:12px;">Raw response</summary>
       <pre style="white-space:pre-wrap;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;">${escapeHtml(JSON.stringify(data, null, 2))}</pre></details>`;
@@ -1101,15 +1276,16 @@ function renderBetween(data, meta){
   if(pill) pill.hidden = false;
   if(routeLabelEl) routeLabelEl.textContent = from && to ? `${from} → ${to}` : 'Search Results';
   if(countEl) countEl.textContent = `${list.length} train${list.length === 1 ? '' : 's'} found`;
+  syncRouteFavBtn();
 
   const journeyDateVal = document.getElementById('journeyDate')?.value || todayStr;
   const journeyDateObj = new Date(journeyDateVal + 'T00:00:00');
   const journeyDateLabel = journeyDateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' });
 
-  renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel);
+  renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel, from, to);
 }
 
-function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel){
+function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel, from, to){
   const sorted = [...list].sort((a, b) => {
     const da = parseTimeToMinutes(pick(a, ['from_std','departureTime'], '')) ?? 9999;
     const db = parseTimeToMinutes(pick(b, ['from_std','departureTime'], '')) ?? 9999;
@@ -1135,7 +1311,7 @@ function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLa
       arrDateLabel = nextDay.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' });
     }
 
-    return `<button class="train-list-item" data-no="${escapeHtml(no)}" data-i="${i}">
+    return `<div class="train-list-item" data-no="${escapeHtml(no)}" data-from="${escapeHtml(from)}" data-to="${escapeHtml(to)}" data-i="${i}">
       <div class="tli-top">
         <div>
           <div class="tli-name">${escapeHtml(name)}</div>
@@ -1154,14 +1330,20 @@ function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLa
           <span class="tli-time">${escapeHtml(to12Hour(arr))}</span>
         </div>
       </div>
-      <div class="tli-cta">${iconLabel(ICONS.train, 'View live status & full route')}</div>
-    </button>`;
+      <div class="tli-actions">
+        <button class="tli-action-btn" data-action="fare">${iconLabel(ICONS.rupee, 'Fares')}</button>
+        <button class="tli-action-btn" data-action="seats">${iconLabel(ICONS.seat, 'Seats')}</button>
+      </div>
+      <div class="tli-expand" hidden></div>
+      <button class="tli-cta" data-action="live">${iconLabel(ICONS.train, 'View live status & full route')}</button>
+    </div>`;
   }).join('');
 
   betweenResult.innerHTML = staleBadge + items + (meta.fromCache && !meta.offline ? '<p class="hint">Shown from this session\'s cache — no new API call used.</p>' : '');
 
-  betweenResult.querySelectorAll('.train-list-item').forEach(card => {
-    card.addEventListener('click', () => {
+  betweenResult.querySelectorAll('.tli-cta').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.train-list-item');
       const trainNo = card.dataset.no;
       if(!/^\d{4,5}$/.test(trainNo)){
         showToast("This train's number isn't available for live tracking.");
@@ -1173,6 +1355,15 @@ function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLa
       showToast('Opening live status — uses 1 API call.');
       runLiveStatus(trainNo);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  betweenResult.querySelectorAll('.tli-action-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.train-list-item');
+      const action = btn.dataset.action;
+      if(action === 'fare') openFarePanel(card);
+      else openSeatsPanel(card);
     });
   });
 }
@@ -1201,7 +1392,9 @@ function refreshBetweenView(){
   const visible = applyTypeFilter(lastBetweenList);
   const countEl = document.getElementById('betweenResultCount');
   if(countEl) countEl.textContent = `${visible.length} train${visible.length === 1 ? '' : 's'} found${activeTypeFilters.size ? ' · filtered' : ''}`;
-  renderBetweenList(visible, '', { fromCache: true, offline: false }, journeyDateObj, journeyDateLabel);
+  const lastFrom = document.getElementById('fromStation')?.value.trim().toUpperCase() || '';
+  const lastTo = document.getElementById('toStation')?.value.trim().toUpperCase() || '';
+  renderBetweenList(visible, '', { fromCache: true, offline: false }, journeyDateObj, journeyDateLabel, lastFrom, lastTo);
 }
 
 document.getElementById('betweenBackBtn')?.addEventListener('click', () => {

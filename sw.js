@@ -1,4 +1,8 @@
-const CACHE = 'ensura-shell-v26';
+// Network-first app shell: whenever the phone is online, it always fetches
+// the latest index.html/style.css/script.js from the server — no manual
+// cache-version bump needed on every deploy. The cache is only a fallback
+// for when the device is genuinely offline.
+const CACHE = 'ensura-shell';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -41,14 +45,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // App shell: cache-first, falling back to network, so the UI opens offline.
+  // App shell: network-first. Try the network for the freshest file;
+  // only fall back to the cached copy if the network request fails
+  // (i.e. the device is actually offline). Successful network responses
+  // refresh the cache in the background for the next offline visit.
   event.respondWith(
-    caches.match(event.request).then(cached =>
-      cached || fetch(event.request).then(res => {
+    fetch(event.request)
+      .then(res => {
         const clone = res.clone();
         caches.open(CACHE).then(cache => cache.put(event.request, clone));
         return res;
-      }).catch(() => cached)
-    )
+      })
+      .catch(() => caches.match(event.request))
   );
 });

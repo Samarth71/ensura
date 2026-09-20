@@ -97,6 +97,7 @@ function pathForTab(tabKey, trainNo){
 
 function activateTab(tabKey, direction, opts){
   opts = opts || {};
+  hideResultsSubpage(false);
   if(currentTab !== 'live' && currentTab !== tabKey) lastNonLiveTab = currentTab;
   const dir = direction || (tabKey === 'live' ? 'forward' : 'back');
   currentTab = tabKey;
@@ -113,6 +114,12 @@ function activateTab(tabKey, direction, opts){
   document.querySelectorAll('.quick-tile').forEach(x => x.classList.toggle('active', x.dataset.tab === tabKey));
   positionIndicator(document.querySelector('.tab.active'));
 
+  if(tabKey === 'live' && opts.trainNo){
+    showLiveResultsSubpage(dir);
+  } else {
+    hideLiveResultsSubpage();
+  }
+
   if(!opts.skipPush){
     const path = pathForTab(tabKey, opts.trainNo);
     if(location.pathname !== path){
@@ -125,17 +132,41 @@ document.querySelectorAll('.quick-tile').forEach(t => t.addEventListener('click'
 window.addEventListener('load', () => positionIndicator(document.querySelector('.tab.active')));
 window.addEventListener('resize', () => positionIndicator(document.querySelector('.tab.active')));
 
+function showLiveResultsSubpage(direction){
+  const sub = document.getElementById('panel-live-results');
+  if(!sub) return;
+  sub.hidden = false;
+  sub.classList.remove('slide-forward', 'slide-back');
+  void sub.offsetWidth;
+  sub.classList.add(direction === 'back' ? 'slide-back' : 'slide-forward');
+  document.body.classList.add('subpage-open');
+}
+function hideLiveResultsSubpage(){
+  const sub = document.getElementById('panel-live-results');
+  if(sub) sub.hidden = true;
+  document.body.classList.remove('subpage-open');
+}
+
 /* ---------------- browser back/forward support (real page-navigation feel) ---------------- */
 function routeFromLocation(){
   const parts = location.pathname.split('/').filter(Boolean);
   if(parts[0] === 'live') return { tab: 'live', trainNo: parts[1] || null };
   if(parts[0] === 'pnr') return { tab: 'pnr', trainNo: null };
-  if(parts[0] === 'between') return { tab: 'between', trainNo: null };
+  if(parts[0] === 'between'){
+    if(parts[1] === 'results') return { tab: 'between-results', trainNo: null };
+    return { tab: 'between', trainNo: null };
+  }
   return { tab: 'live', trainNo: null };
 }
 window.addEventListener('popstate', (e) => {
   const route = (e.state && e.state.tab) ? e.state : routeFromLocation();
-  activateTab(route.tab, 'back', { skipPush: true });
+  if(route.tab === 'between-results'){
+    activateTab('between', 'forward', { skipPush: true });
+    showResultsSubpage('forward', false);
+    return;
+  }
+  hideResultsSubpage(false);
+  activateTab(route.tab, 'back', { skipPush: true, trainNo: route.trainNo });
   if(route.tab === 'live' && route.trainNo){
     liveInput.value = route.trainNo;
     syncFavBtn();
@@ -564,8 +595,16 @@ function checkDelayChange(data, silent){
   lastKnownDelay = dNum;
 }
 
-document.getElementById('liveSubmit').addEventListener('click', () => runLiveStatus(liveInput.value.trim()));
-liveInput.addEventListener('keydown', e => { if(e.key === 'Enter') runLiveStatus(liveInput.value.trim()); });
+function startLiveTrack(trainNo){
+  if(!/^\d{4,5}$/.test(trainNo)){
+    showToast('Enter a valid 4-5 digit train number.');
+    return;
+  }
+  activateTab('live', 'forward', { trainNo });
+  runLiveStatus(trainNo);
+}
+document.getElementById('liveSubmit').addEventListener('click', () => startLiveTrack(liveInput.value.trim()));
+liveInput.addEventListener('keydown', e => { if(e.key === 'Enter') startLiveTrack(liveInput.value.trim()); });
 
 autoRefreshToggle.addEventListener('change', () => {
   if(autoRefreshTimer){ clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
@@ -743,7 +782,11 @@ function renderLive(data, meta){
     </div>`;
 
   document.getElementById('liveBackBtn')?.addEventListener('click', () => {
-    activateTab(lastNonLiveTab || 'between', 'back');
+    if(location.pathname.startsWith('/live/')){
+      history.back();
+    } else {
+      activateTab(lastNonLiveTab || 'between', 'back');
+    }
   });
 
   const copyBtn = document.getElementById('copyLiveBtn');
@@ -987,30 +1030,51 @@ function parseTimeToMinutes(t){
   return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }
 
+function showResultsSubpage(direction, push){
+  const sub = document.getElementById('panel-between-results');
+  if(!sub) return;
+  sub.hidden = false;
+  sub.classList.remove('slide-forward', 'slide-back');
+  void sub.offsetWidth;
+  sub.classList.add(direction === 'back' ? 'slide-back' : 'slide-forward');
+  document.body.classList.add('subpage-open');
+  if(push && location.pathname !== '/between/results'){
+    history.pushState({ tab: 'between-results' }, '', '/between/results');
+  }
+}
+function hideResultsSubpage(push){
+  const sub = document.getElementById('panel-between-results');
+  if(sub) sub.hidden = true;
+  document.body.classList.remove('subpage-open');
+  if(push && location.pathname !== '/between'){
+    history.pushState({ tab: 'between' }, '', '/between');
+  }
+}
+
 function renderBetween(data, meta){
   meta = meta || {};
   const list = pick(data, ['trainBtwnStnsList','trains','data'], []);
   const staleBadge = staleBadgeHtml(meta);
   const pill = document.getElementById('floatingPill');
   const countEl = document.getElementById('betweenResultCount');
-  const headerEl = document.getElementById('betweenResultHeader');
   const routeLabelEl = document.getElementById('betweenRouteLabel');
   const from = document.getElementById('fromStation')?.value.trim().toUpperCase() || '';
   const to = document.getElementById('toStation')?.value.trim().toUpperCase() || '';
 
   if(!Array.isArray(list) || !list.length){
     if(pill) pill.hidden = true;
-    if(headerEl) headerEl.hidden = true;
+    if(routeLabelEl) routeLabelEl.textContent = from && to ? `${from} → ${to}` : 'Search Results';
+    if(countEl) countEl.textContent = 'No trains found';
     betweenResult.innerHTML = `${staleBadge}<div class="status-msg">No trains found for this route/date.</div>
       <details style="margin-top:10px;"><summary style="cursor:pointer;color:var(--dim);font-size:12px;">Raw response</summary>
       <pre style="white-space:pre-wrap;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;">${escapeHtml(JSON.stringify(data, null, 2))}</pre></details>`;
+    showResultsSubpage('forward', true);
     return;
   }
 
   lastBetweenList = list;
   activeTypeFilters.clear();
   if(pill) pill.hidden = false;
-  if(headerEl) headerEl.hidden = false;
   if(routeLabelEl) routeLabelEl.textContent = from && to ? `${from} → ${to}` : 'Search Results';
   if(countEl) countEl.textContent = `${list.length} train${list.length === 1 ? '' : 's'} found`;
 
@@ -1019,6 +1083,7 @@ function renderBetween(data, meta){
   const journeyDateLabel = journeyDateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' });
 
   renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel);
+  showResultsSubpage('forward', true);
 }
 
 function renderBetweenList(list, staleBadge, meta, journeyDateObj, journeyDateLabel){
@@ -1117,7 +1182,11 @@ function refreshBetweenView(){
 }
 
 document.getElementById('betweenBackBtn')?.addEventListener('click', () => {
-  document.getElementById('panel-between')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if(location.pathname === '/between/results'){
+    history.back();
+  } else {
+    hideResultsSubpage(true);
+  }
 });
 
 document.getElementById('pillSort')?.addEventListener('click', function(){
@@ -1290,10 +1359,15 @@ function showScanError(msg){
    deep link like /live/12951 shared by someone else. Runs last since it
    depends on liveInput, runLiveStatus, and syncFavBtn above. */
 (function initRoute(){
-  const route = routeFromLocation();
+  let route = routeFromLocation();
+  if(route.tab === 'between-results'){
+    // A direct load/refresh has no in-memory search results to show —
+    // land on the search form itself instead of a broken empty page.
+    route = { tab: 'between', trainNo: null };
+  }
   history.replaceState({ tab: route.tab, trainNo: route.trainNo }, '', pathForTab(route.tab, route.trainNo));
-  if(route.tab !== 'live'){
-    activateTab(route.tab, 'forward', { skipPush: true });
+  if(route.tab !== 'live' || route.trainNo){
+    activateTab(route.tab, 'forward', { skipPush: true, trainNo: route.trainNo });
   }
   if(route.tab === 'live' && route.trainNo){
     liveInput.value = route.trainNo;

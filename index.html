@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="512x512" href="favicon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -144,6 +145,7 @@
       <input type="date" id="journeyDate">
       <button class="btn" id="betweenSubmit">Find Trains</button>
       <p class="hint">Uses 1 API call. Station search below is local — free, unlimited.</p>
+      <div class="chip-row" id="betweenFavChips"></div>
       <div class="chip-row" id="betweenRecentChips"></div>
     </div>
   </section>
@@ -157,6 +159,9 @@
         <div class="result-header-title" id="betweenRouteLabel">Search Results</div>
         <div class="result-header-sub" id="betweenResultCount"></div>
       </div>
+      <button class="detail-back-inline" id="routeFavBtn" title="Save this route" style="margin-left:auto;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3.5l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3.1-5.3 3.1 1.2-6-4.5-4.1 6-.7z" stroke-linejoin="round"/></svg>
+      </button>
     </div>
     <div class="result" id="betweenResult"></div>
     <div class="filter-sheet" id="filterSheet" hidden>
